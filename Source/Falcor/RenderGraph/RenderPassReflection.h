@@ -161,7 +161,7 @@ public:
 
     Field& addInput(const std::string& name, const std::string& desc);
     Field& addOutput(const std::string& name, const std::string& desc);
-    Field& addInputOutput(const std::string& name, const std::string& desc);
+    Field& addInputOutput(const std::string& name, const std::string& desc);///< declares a pass-through resource: A resource is required as an input, the pass will update the resource, then that resource can also be referred to as an output with the same name.
     Field& addInternal(const std::string& name, const std::string& desc);
 
     size_t getFieldCount() const { return mFields.size(); }
