@@ -79,8 +79,8 @@ void HelloDXR::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTar
 
         if (mRayTrace)
             renderRT(pRenderContext, pTargetFbo);
-        else
-            renderRaster(pRenderContext, pTargetFbo);
+        //else
+        //    renderRaster(pRenderContext, pTargetFbo);
     }
 
     getTextRenderer().render(pRenderContext, getFrameRate().getMsg(), pTargetFbo, {20, 20});
@@ -146,12 +146,13 @@ void HelloDXR::loadScene(const std::filesystem::path& path, const Fbo* pTargetFb
 
     // Create raster pass.
     // This utility wraps the creation of the program and vars, and sets the necessary scene defines.
-    ProgramDesc rasterProgDesc;
-    rasterProgDesc.addShaderModules(shaderModules);
-    rasterProgDesc.addShaderLibrary("Samples/HelloDXR/HelloDXR.3d.slang").vsEntry("vsMain").psEntry("psMain");
-    rasterProgDesc.addTypeConformances(typeConformances);
+    //ProgramDesc rasterProgDesc;
+    //rasterProgDesc.addShaderModules(shaderModules);
+    //rasterProgDesc.addShaderLibrary("Samples/HelloDXR/HelloDXR.3d.slang").vsEntry("vsMain").psEntry("psMain");
+    //rasterProgDesc.setShaderModel(ShaderModel::SM6_6);
+    //rasterProgDesc.addTypeConformances(typeConformances);
 
-    mpRasterPass = RasterPass::create(getDevice(), rasterProgDesc, defines);
+    //mpRasterPass = RasterPass::create(getDevice(), rasterProgDesc, defines);
 
     // We'll now create a raytracing program. To do that we need to setup two things:
     // - A program description (ProgramDesc). This holds all shader entry points, compiler flags, macro defintions,
@@ -167,6 +168,7 @@ void HelloDXR::loadScene(const std::filesystem::path& path, const Fbo* pTargetFb
     ProgramDesc rtProgDesc;
     rtProgDesc.addShaderModules(shaderModules);
     rtProgDesc.addShaderLibrary("Samples/HelloDXR/HelloDXR.rt.slang");
+    //rtProgDesc.setShaderModel(ShaderModel::SM6_3);
     rtProgDesc.addTypeConformances(typeConformances);
     rtProgDesc.setMaxTraceRecursionDepth(3); // 1 for calling TraceRay from RayGen, 1 for calling it from the
                                              // primary-ray ClosestHit shader for reflections, 1 for reflection ray

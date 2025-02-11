@@ -1,0 +1,8 @@
+{	"slang.predefinedMacros": [
+        "MY_MACRO",
+        "MY_VALUE_MACRO=1"
+    ],
+	"slang.additionalSearchPaths": [
+		".\\Falcor"
+    ]
+}
