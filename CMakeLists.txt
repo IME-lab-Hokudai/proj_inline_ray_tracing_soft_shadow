@@ -285,7 +285,9 @@ set_target_properties(copy_scripts_folder PROPERTIES FOLDER "Misc")
 # -----------------------------------------------------------------------------
 # Falcor applications
 # -----------------------------------------------------------------------------
-
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
+set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /DEBUG")
+set(SLANG_ENABLE_DEBUG_INFO ON)
 # Create a Falcor application and link the main Falcor library.
 function(add_falcor_executable target)
     add_executable(${target})
