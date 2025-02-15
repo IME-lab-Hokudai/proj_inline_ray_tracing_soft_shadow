@@ -696,6 +696,7 @@ SlangCompileRequest* ProgramManager::createSlangCompileRequest(const Program& pr
         break;
     case Device::Type::Vulkan:
         targetDesc.format = SLANG_SPIRV;
+        /*targetDesc.profile = "spirv - 1.5";*/
         targetMacroName = "FALCOR_VULKAN";
         break;
     default:

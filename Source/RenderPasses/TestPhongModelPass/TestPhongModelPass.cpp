@@ -66,25 +66,25 @@ RenderPassReflection TestPhongModelPass::reflect(const CompileData& compileData)
 
 void TestPhongModelPass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
+    auto pTargetFbo = renderData.getTexture("output");
+    const float4 clearColor(0, 0, 0, 1);
+    mpFbo->attachColorTarget(pTargetFbo, 0);
+
+    // Update frame dimension based on render pass output.
+    auto pDepth = renderData.getTexture("depth");
+    FALCOR_ASSERT(pDepth);
+    // updateFrameDim(uint2(pDepth->getWidth(), pDepth->getHeight()));
+    //  Clear depth buffer.
+    pRenderContext->clearDsv(pDepth->getDSV().get(), 1.f, 0);
+    mpFbo->attachDepthStencilTarget(pDepth);
+
+    pRenderContext->clearFbo(mpFbo.get(), clearColor, 1.0f, 0, FboAttachmentType::Color);
+
     if (mpScene)
     {
-        auto pTargetFbo = renderData.getTexture("output");
-        const float4 clearColor(0, 0, 0, 1);
-        mpFbo->attachColorTarget(pTargetFbo, 0);
-       
-        pRenderContext->clearFbo(mpFbo.get(), clearColor, 1.0f, 0, FboAttachmentType::Color);
-
         auto var = mpVars->getRootVar();
         var["PerFrameCB"]["gColor"] = float4(0, 1, 0, 1);
         var["gSampler"] = mpLinearSampler;
-
-        // Update frame dimension based on render pass output.
-        auto pDepth = renderData.getTexture("depth");
-        FALCOR_ASSERT(pDepth);
-        //updateFrameDim(uint2(pDepth->getWidth(), pDepth->getHeight()));
-        // Clear depth buffer.
-        pRenderContext->clearDsv(pDepth->getDSV().get(), 1.f, 0);
-        mpFbo->attachDepthStencilTarget(pDepth);
         mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
 }
@@ -103,7 +103,7 @@ void TestPhongModelPass::setScene(RenderContext* pRenderContext, const ref<Scene
         desc.addShaderLibrary(kShaderFile)
             .vsEntry("vsMain")  // Vertex shader entry point
             .psEntry("psMain"); // Pixel shader entry point;
-        desc.setShaderModel(ShaderModel::SM6_3);
+        //desc.setShaderModel(ShaderModel::SM6_3);
         mpProgram = Program::create(mpDevice, desc, mpScene->getSceneDefines());
         mpVars = ProgramVars::create(mpDevice, mpProgram->getReflector());
 

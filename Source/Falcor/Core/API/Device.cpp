@@ -439,6 +439,7 @@ Device::Device(const Desc& desc) : mDesc(desc)
     slang::createGlobalSession(mSlangGlobalSession.writeRef());
 
     if (mDesc.type == Type::Default)
+        //mDesc.type = Type::Vulkan;
         mDesc.type = getDefaultDeviceType();
 
 #if !FALCOR_HAS_D3D12
