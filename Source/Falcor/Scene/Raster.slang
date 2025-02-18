@@ -63,6 +63,7 @@ struct VSOut
     INTERPOLATION_MODE float2 texC       : TEXCRD;      ///< Texture coordinate.
     INTERPOLATION_MODE float3 posW       : POSW;        ///< Position in world space.
     INTERPOLATION_MODE float4 prevPosH   : PREVPOSH;    ///< Position in clip space for the previous frame.
+    INTERPOLATION_MODE float4 shadowPosH   : ShadowH;    ///< Position in light perspective
 
     // Per-triangle data
     nointerpolation GeometryInstanceID instanceID   : INSTANCE_ID;  ///< Geometry instance ID.

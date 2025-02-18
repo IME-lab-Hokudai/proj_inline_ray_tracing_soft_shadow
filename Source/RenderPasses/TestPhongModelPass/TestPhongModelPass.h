@@ -62,6 +62,7 @@ private:
     // Internal state
     ref<Fbo> mpFbo;
     ref<Sampler> mpLinearSampler;
+    ref<Sampler> mpShadowSampler;
     /// Selected output size.
     RenderPassHelpers::IOSize mOutputSizeSelection = RenderPassHelpers::IOSize::Default;
     /// Output size in pixels when 'Fixed' size is selected.

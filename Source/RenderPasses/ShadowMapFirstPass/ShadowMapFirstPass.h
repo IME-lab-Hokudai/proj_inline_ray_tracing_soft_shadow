@@ -66,7 +66,8 @@ private:
     /// Output size in pixels when 'Fixed' size is selected.
     uint2 mFixedOutputSize = {512, 512};
 
-    math::matrix<float, 4, 4> lightViewProjMat;
+    math::matrix<float, 4, 4> mLightViewProjMat;
+    math::matrix<float, 4, 4> mShadowTransformMat;
 };
 
 

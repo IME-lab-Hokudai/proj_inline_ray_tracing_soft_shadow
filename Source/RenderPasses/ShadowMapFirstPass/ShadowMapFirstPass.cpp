@@ -58,6 +58,7 @@ RenderPassReflection ShadowMapFirstPass::reflect(const CompileData& compileData)
         .format(ResourceFormat::D32Float)
         .bindFlags(ResourceBindFlags::DepthStencil)
         .texture2D(sz.x, sz.y);
+    reflector.addOutput("shadowTransform", "shadow transform matrix").resourceType(RenderPassReflection::Field::Type::RawBuffer,sizeof(float4x4),0,0,0,0,0);
     return reflector;
 }
 
@@ -72,10 +73,53 @@ void ShadowMapFirstPass::execute(RenderContext* pRenderContext, const RenderData
     mpFbo->attachDepthStencilTarget(pDepth);
     //mpFbo->getDepthStencilView()
 
+    
     if (mpScene)
     {
+         //hardcode  get dir light
+        ref<Light> dirLight = mpScene->getLight(0);
+
+        float3 sceneCenter = float3(0.0f, 0.0f, 0.0f);
+        float sceneRadius = 5.0f;
+
+        float3 lightDir = dirLight->getData().dirW;
+         //float3 lightDir = float3(0.57735f, -0.57735f, 0.57735f);
+        float3 lightPos = -sceneRadius * lightDir;
+        float3 targetPos = sceneCenter;
+        float3 lightUp = float3(0.0f, 1.0f, 0.0f);
+        math::matrix<float, 4, 4> lightView = math::matrixFromLookAt(lightPos, targetPos, lightUp, math::Handedness::RightHanded);
+
+        // Transform bounding sphere to light space.
+        float3 sphereCenterLS;
+        sphereCenterLS = math::transformPoint(lightView, targetPos);
+
+        // Ortho frustum in light space encloses scene.
+        float l = sphereCenterLS.x - sceneRadius;
+        float b = sphereCenterLS.y - sceneRadius;
+        float n = abs(sphereCenterLS.z + sceneRadius); // because right handed visible z is negative
+        float r = sphereCenterLS.x + sceneRadius;
+        float t = sphereCenterLS.y + sceneRadius;
+        float f = abs(sphereCenterLS.z - sceneRadius); // because right handed visible z is negative
+
+        math::matrix<float, 4, 4> lightProj = math::ortho(l, r, b, t, n, f);
+        mLightViewProjMat = math::mul(lightProj, lightView); // light perspective view project matrix
+
+        // Transform NDC space [-1,+1]^2 to texture space [0,1]^2
+        math::matrix<float, 4, 4> T{0.5f, 0.0f, 0.0f, 0.5f,
+                                    0.0f, -0.5f, 0.0f, 0.5f,
+                                    0.0f, 0.0f, 1.0f, 0.0f,
+                                    0.0f, 0.0f, 0.0f, 1.0f};
+        //mShadowTransformMat = math::mul(mLightViewProjMat, T);
+        //mShadowTransformMat = math::transpose(math::mul(mLightViewProjMat, T));
+        mShadowTransformMat = math::mul(T, mLightViewProjMat);
+        //mShadowTransformMat = math::transpose(mShadowTransformMat);
+        //mShadowTransformMat = mShadowTransformMat;
+        //mShadowTransformMat = mLightViewProjMat;
+        auto shadowMat = renderData.getResource("shadowTransform")->asBuffer();
+        shadowMat->setBlob(&mShadowTransformMat[0][0], 0, sizeof(float4x4));
+        //shadowMat->setBlob(&mLightViewProjMat[0][0], 0, sizeof(float4x4));
         auto var = mpVars->getRootVar();
-        var["PerFrameCB"]["gLightViewProjMat"] = lightViewProjMat;
+        var["PerFrameCB"]["gLightViewProjMat"] = mLightViewProjMat;
         mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
 }
@@ -111,34 +155,6 @@ void ShadowMapFirstPass::setScene(RenderContext* pRenderContext, const ref<Scene
         mpGraphicsState->setRasterizerState(mpRasterState);
         mpGraphicsState->setFbo(mpFbo);
         mpGraphicsState->setDepthStencilState(pDsState);
-
-        //hardcode  get dir light 
-        ref<Light> dirLight = mpScene->getLight(0);
-
-        float3 sceneCenter = float3(0.0f, 0.0f, 0.0f);
-        float sceneRadius = 10.0f;
-
-        float3 lightDir = dirLight->getData().dirW;
-        //float3 lightDir = float3(0.57735f, -0.57735f, 0.57735f);
-        float3 lightPos = -sceneRadius * lightDir;
-        float3 targetPos = sceneCenter;
-        float3 lightUp = float3(0.0f, 1.0f, 0.0f);
-        math::matrix<float,4,4> lightView = math::matrixFromLookAt(lightPos, targetPos, lightUp, math::Handedness::RightHanded);
-
-        //Transform bounding sphere to light space.
-        float3 sphereCenterLS;
-        sphereCenterLS = math::transformPoint(lightView, targetPos);
-
-        // Ortho frustum in light space encloses scene.
-        float l = sphereCenterLS.x - sceneRadius;
-        float b = sphereCenterLS.y - sceneRadius;
-        float n = abs(sphereCenterLS.z + sceneRadius); //because right handed visible z is negative
-        float r = sphereCenterLS.x + sceneRadius;
-        float t = sphereCenterLS.y + sceneRadius;
-        float f = abs(sphereCenterLS.z - sceneRadius); //because right handed visible z is negative
-
-        math::matrix<float, 4, 4> lightProj = math::ortho(l, r, b, t, n, f);
-        lightViewProjMat = math::mul(lightProj, lightView); // light perspective view project matrix
     }
 }
 

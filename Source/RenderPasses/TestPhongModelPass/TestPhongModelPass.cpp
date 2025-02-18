@@ -42,7 +42,13 @@ TestPhongModelPass::TestPhongModelPass(ref<Device> pDevice, const Properties& pr
     mpFbo = Fbo::create(mpDevice);
     Sampler::Desc samplerDesc;
     samplerDesc.setFilterMode(TextureFilteringMode::Linear, TextureFilteringMode::Linear, TextureFilteringMode::Linear);
+
+    Sampler::Desc shadowSamplerDesc;
+    shadowSamplerDesc.setFilterMode(TextureFilteringMode::Linear, TextureFilteringMode::Linear, TextureFilteringMode::Linear)
+        .setReductionMode(TextureReductionMode::Comparison)
+        .setComparisonFunc(ComparisonFunc::LessEqual);
     mpLinearSampler = mpDevice->createSampler(samplerDesc);
+    mpShadowSampler = mpDevice->createSampler(shadowSamplerDesc);
 }
 
 Properties TestPhongModelPass::getProperties() const
@@ -55,6 +61,10 @@ RenderPassReflection TestPhongModelPass::reflect(const CompileData& compileData)
     // Define the required resources here
     RenderPassReflection reflector;
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
+    reflector.addInput("shadowmap", "shadow map").flags(RenderPassReflection::Field::Flags::Optional);
+    reflector.addInput("shadowTransform", "shadow transform matrix")
+        .resourceType(RenderPassReflection::Field::Type::RawBuffer, sizeof(float4x4), 0, 0, 0, 0, 0)
+        .flags(RenderPassReflection::Field::Flags::Optional);
     reflector.addOutput("output", "PhongModel view texture");
     // Add the required depth output. This always exists.
     reflector.addOutput("depth", "Depth buffer")
@@ -79,12 +89,29 @@ void TestPhongModelPass::execute(RenderContext* pRenderContext, const RenderData
     mpFbo->attachDepthStencilTarget(pDepth);
 
     pRenderContext->clearFbo(mpFbo.get(), clearColor, 1.0f, 0, FboAttachmentType::Color);
-
+    
     if (mpScene)
     {
+        auto pShadowMap = renderData.getTexture("shadowmap");
+        auto pShadowTransform = renderData.getResource("shadowTransform")->asBuffer();
+        float4x4 mat = float4x4::identity();
+        if (pShadowTransform)
+        {
+            pShadowTransform->getBlob(&mat[0][0], 0, sizeof(float4x4));
+            pShadowTransform->setName("Shadow Transform");
+        }
+           
+
         auto var = mpVars->getRootVar();
-        var["PerFrameCB"]["gColor"] = float4(0, 1, 0, 1);
+        var["PerFrameCB"]["gShadowTransform"] = mat;
         var["gSampler"] = mpLinearSampler;
+        var["gSamShadow"] = mpShadowSampler;
+        if (pShadowMap)
+        {
+            var["gShadowMap"] = pShadowMap;
+            pShadowMap->setName("Shadow Map");
+        }
+            
         mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
 }
@@ -111,6 +138,7 @@ void TestPhongModelPass::setScene(RenderContext* pRenderContext, const ref<Scene
         RasterizerState::Desc rasterDesc;
         rasterDesc.setFillMode(RasterizerState::FillMode::Solid);
         rasterDesc.setCullMode(RasterizerState::CullMode::None);
+        rasterDesc.setDepthBias(100000, 1.0f);
         mpRasterState = RasterizerState::create(rasterDesc);
 
         //default depth stencil state

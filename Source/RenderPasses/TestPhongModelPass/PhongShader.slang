@@ -1,60 +1,20 @@
 import Scene.Raster; // Imports defaultVS.
 
 SamplerState gSampler;
+SamplerComparisonState gSamShadow;
+Texture2D gShadowMap;
 
 cbuffer PerFrameCB
 {
-    float4 gColor;
+    float4x4 gShadowTransform;//transform to shadow map texture space
 };
 
 VSOut vsMain(VSIn vIn)
 {
-    return defaultVS(vIn);
+    VSOut vsOut = defaultVS(vIn);
+    vsOut.shadowPosH = mul(gShadowTransform, float4(vsOut.posW, 1.f));
+    return vsOut;
 }
-
-//// Schlick gives an approximation to Fresnel reflectance (see pg. 233 "Real-Time Rendering 3rd Ed.").
-//// R0 = ( (n-1)/(n+1) )^2, where n is the index of refraction.
-//float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
-//{
-//    float cosIncidentAngle = saturate(dot(normal, lightVec));
-
-//    float f0 = 1.0f - cosIncidentAngle;
-//    float3 reflectPercent = R0 + (1.0f - R0) * (f0 * f0 * f0 * f0 * f0);
-
-//    return reflectPercent;
-//}
-
-//float3 BlinnPhong(float3 lightStrength, float3 lightVec, float3 normal, float3 toEye, BasicMaterialData mat)
-//{
-//    const float m = mat.Shininess * 256.0f;
-//    float3 halfVec = normalize(toEye + lightVec);
-
-//    float roughnessFactor = (m + 8.0f) * pow(max(dot(halfVec, normal), 0.0f), m) / 8.0f;
-//    float3 fresnelFactor = SchlickFresnel(mat.FresnelR0, halfVec, lightVec);
-
-//    float3 specAlbedo = fresnelFactor * roughnessFactor;
-
-//    // Our spec formula goes outside [0,1] range, but we are
-//    // doing LDR rendering.  So scale it down a bit.
-//    specAlbedo = specAlbedo / (specAlbedo + 1.0f);
-
-//    return (mat.DiffuseAlbedo.rgb + specAlbedo) * lightStrength;
-//}
-
-////---------------------------------------------------------------------------------------
-//// Evaluates the lighting equation for directional lights.
-////---------------------------------------------------------------------------------------
-//float3 ComputeDirectionalLight(LightData lightData, BasicMaterialData mat, float3 normal, float3 toEye)
-//{
-//    // The light vector aims opposite the direction the light rays travel.
-//    float3 lightVec = -lightData.dirW;
-
-//    // Scale light down by Lambert's cosine law.
-//    float ndotl = max(dot(lightVec, normal), 0.0f);
-//    float3 lightStrength = lightData.intensity * ndotl;
-
-//    return BlinnPhong(lightStrength, lightVec, normal, toEye, mat);
-//}
 
 //---------------------------------------------------------------------------------------
 // Transforms a normal map sample to world space.
@@ -77,6 +37,46 @@ float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, floa
     return bumpedNormalW;
 }
 
+//---------------------------------------------------------------------------------------
+// PCF for shadow mapping.
+//---------------------------------------------------------------------------------------
+// factor of 0 means point is in shadow, 1 means not in shadow
+float CalcShadowFactor(float4 shadowPosH)
+{
+    // Complete projection by doing division by w.
+    shadowPosH.xyz /= shadowPosH.w;
+
+    // Depth in NDC space.
+    float depth = shadowPosH.z - 0.001f;
+
+    uint width, height, numMips;
+    gShadowMap.GetDimensions(0, width, height, numMips);
+
+    // Texel size.
+    float dx = 1.0f / (float)width;
+
+    float percentlit = 0.0f;
+    const float2 offsets[9] =
+    {
+        float2(-dx, -dx),  float2(0.0f, -dx),  float2(dx, -dx),
+                                float2(-dx, 0.0f), float2(0.0f, 0.0f), float2(dx, 0.0f),
+                                float2(-dx, +dx),  float2(0.0f, +dx),  float2(dx, +dx)
+    };
+
+    [unroll]
+    for (int i = 0; i < 9; ++i)
+    {
+        percentlit += gShadowMap.SampleCmpLevelZero(gSamShadow, shadowPosH.xy + offsets[i], depth).r;
+    }
+
+     return percentlit / 9.0f;
+    //float sd = gShadowMap.Sample(gSampler, shadowPosH.xy).r;
+    //if (sd <= depth) {
+    //    return 0;
+    //}
+    //return 1;
+}
+
 float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
 {
     float3 viewDir = normalize(gScene.camera.getPosition() - vsOut.posW);
@@ -97,6 +97,9 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     // Scale light down by Lambert's cosine law.
     float3 normalSampleW = NormalSampleToWorldSpace(normalSample, normalize(vsOut.normalW), vsOut.tangentW.rgb);
 
+    // Only the first light casts a shadow.
+    float shadowFactor = CalcShadowFactor(vsOut.shadowPosH);
+
     //diffuse calculation
     float ndotl = max(dot(lightVec, normalSampleW), 0.0f);
     float3 diffuseColor = baseColorSample.rgb * ndotl;
@@ -114,7 +117,7 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     // doing LDR rendering.  So scale it down a bit.
     specColor = specColor / (specColor + 1.0f);
 
-    float3 litColor = (diffuseColor + specColor) * dirLightData.intensity + emissiveSample.rgb;
+    float3 litColor = (diffuseColor + specColor) * dirLightData.intensity * shadowFactor + emissiveSample.rgb;
 
     return float4(litColor,1.0f);
 }
