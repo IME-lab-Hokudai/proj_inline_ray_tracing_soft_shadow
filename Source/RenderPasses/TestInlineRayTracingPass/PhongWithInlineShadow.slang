@@ -1,7 +1,8 @@
 import Scene.Raster; // Imports defaultVS.
 import Scene.RaytracingInline;
-SamplerState gSampler;
+import Rendering.Lights.LightHelpers;
 
+SamplerState gSampler;
 VSOut vsMain(VSIn vIn)
 {
     VSOut vsOut = defaultVS(vIn);
@@ -67,22 +68,48 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     // doing LDR rendering.  So scale it down a bit.
     specColor = specColor / (specColor + 1.0f);
 
-    float3 litColor = (diffuseColor + specColor) * dirLightData.intensity + emissiveSample.rgb;
-
+    int shadowCount = 0;
     /*inline ray tracing*/
-    Ray ray;
-    ray.origin = vsOut.posW;
-    // ray.dir = vsOut.posW + lightVec; // ray from fragment to light source
-    ray.dir = lightVec; // ray from fragment to light source
-    ray.tMin = 0.001;
-    ray.tMax = 1000;
+    for (int i = 0; i < gScene.getLightCount(); i++)
+    { // loop through light sources
+        AnalyticLightSample ls;
+       
+        if (evalLightApproximate(vsOut.posW, gScene.getLight(i), ls)) // there is another function that handle more type of light
+        {
+            Ray ray;
+            ray.origin = vsOut.posW;
+            ray.dir = ls.dir; // ray from fragment to light source
+            ray.tMin = 0.001;
+            ray.tMax = ls.distance;
 
-    SceneRayQuery<false> sceneRayQuery;
-    float hitT;
-    HitInfo hitInfo = sceneRayQuery.traceRay(ray, hitT, 4);
-    if (hitInfo.isValid()) {//shadow ray hit something
-        return float4(0, 0, 0, 1.0f);
+            SceneRayQuery<false> sceneRayQuery;
+            float hitT;
+            HitInfo hitInfo = sceneRayQuery.traceRay(ray, hitT, 4);
+
+            if (hitInfo.isValid())
+            { // shadow ray hit something
+                shadowCount += 1;
+            } else {
+                shadowCount -= 1;
+            }
+        }
+    }
+    if (shadowCount > 0) {
+        return float4(0, 0, 0, 1);
     }
 
+    //Ray ray;
+    //ray.origin = vsOut.posW;
+    //ray.dir = lightVec; // ray from fragment to light source
+    //ray.tMin = 0.001;
+    //ray.tMax = 1000;
+
+    // SceneRayQuery<false> sceneRayQuery;
+    // float hitT;
+    // HitInfo hitInfo = sceneRayQuery.traceRay(ray, hitT, 4);
+    // if (hitInfo.isValid()) {//shadow ray hit something
+    //     return float4(0, 0, 0, 1.0f);
+    // }
+    float3 litColor = (diffuseColor + specColor) * dirLightData.intensity + emissiveSample.rgb;
     return float4(litColor,1.0f);
 }
