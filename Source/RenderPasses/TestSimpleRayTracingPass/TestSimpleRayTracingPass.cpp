@@ -94,12 +94,15 @@ void TestSimpleRayTracingPass::setScene(RenderContext* pRenderContext, const ref
         // Add global type conformances.
         rtProgDesc.addTypeConformances(mpScene->getTypeConformances());
 
-        ref<RtBindingTable> sbt = RtBindingTable::create(1, 2, mpScene->getGeometryCount());
+        ref<RtBindingTable> sbt = RtBindingTable::create(2, 2, mpScene->getGeometryCount());
         sbt->setRayGen(rtProgDesc.addRayGen("rayGen"));
         sbt->setMiss(0, rtProgDesc.addMiss("primaryMiss"));
+        sbt->setMiss(1, rtProgDesc.addMiss("shadowMiss"));
         auto primary = rtProgDesc.addHitGroup("primaryClosestHit");
+        auto shadow = rtProgDesc.addHitGroup("", "shadowAnyHit");
         //auto primary = rtProgDesc.addHitGroup("primaryClosestHit", "primaryAnyHit");
         sbt->setHitGroup(0, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
+        sbt->setHitGroup(1, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh), shadow);
 
         mpRtProgram = Program::create(mpDevice, rtProgDesc, mpScene->getSceneDefines());
         mpRtVars = RtProgramVars::create(mpDevice, mpRtProgram, sbt);

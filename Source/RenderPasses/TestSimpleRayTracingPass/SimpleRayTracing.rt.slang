@@ -47,22 +47,22 @@ struct PrimaryRayData
     float hitT;
 };
 
-//struct ShadowRayData
-//{
-//    bool hit;
-//};
+struct ShadowRayData
+{
+    bool hit;
+};
 
-//[shader("miss")]
-//void shadowMiss(inout ShadowRayData hitData)
-//{
-//    hitData.hit = false;
-//}
+[shader("miss")]
+void shadowMiss(inout ShadowRayData hitData)
+{
+    hitData.hit = false;
+}
 
-//[shader("anyhit")]
-//void shadowAnyHit(inout ShadowRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
-//{
-//    hitData.hit = true;
-//}
+[shader("anyhit")]
+void shadowAnyHit(inout ShadowRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
+{
+    hitData.hit = true;
+}
 
 [shader("miss")]
 void primaryMiss(inout PrimaryRayData hitData)
@@ -72,83 +72,38 @@ void primaryMiss(inout PrimaryRayData hitData)
     hitData.hitT = -1.f;
 }
 
-//bool traceShadowRay(RayDesc ray)
-//{
-//    ShadowRayData rayData;
-//    rayData.hit = true;
-//    TraceRay(gScene.rtAccel, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, 1 /* ray index */, rayTypeCount, 1, ray, rayData);
-//    return rayData.hit;
-//}
+bool traceShadowRay(RayDesc ray)
+{
+    ShadowRayData rayData;
+    rayData.hit = true;
+    TraceRay(gScene.rtAccel, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, 1 /* ray index 1 is shadow ray */, rayTypeCount, 1, ray, rayData);
+    return rayData.hit;
+}
 
-//float3 getReflectionColor(const ShadingData sd, const BSDFProperties bsdfProperties, float3 normalW, float3 worldRayDir, uint hitDepth)
-//{
-//    float3 reflectColor = float3(0, 0, 0);
-//    if (hitDepth == 0)
-//    {
-//        PrimaryRayData secondaryRay = {};
-//        secondaryRay.depth = 1;
+float3 getReflectionColor(const ShadingData sd, const BSDFProperties bsdfProperties, float3 normalW, float3 worldRayDir, uint hitDepth)
+{
+    float3 reflectColor = float3(0, 0, 0);
+    if (hitDepth == 0)
+    {
+        PrimaryRayData secondaryRay = {};
+        secondaryRay.depth = 1;
 
-//        RayDesc ray;
-//        ray.Origin = sd.posW;
-//        ray.Direction = reflect(worldRayDir, normalW);
-//        ray.TMin = 0.001f;
-//        ray.TMax = 100000.f;
-//        TraceRay(gScene.rtAccel, 0 /*rayFlags*/, 0xFF, 0 /* ray index*/, rayTypeCount, 0, ray, secondaryRay);
+        RayDesc ray;
+        ray.Origin = sd.posW;
+        ray.Direction = reflect(worldRayDir, normalW);
+        ray.TMin = 0.001f;
+        ray.TMax = 100000.f;
+        TraceRay(gScene.rtAccel, 0 /*rayFlags*/, 0xFF, 0 /* ray index*/, rayTypeCount, 0, ray, secondaryRay);
 
-//        // A very non-PBR inaccurate way to do reflections.
-//        reflectColor = secondaryRay.hitT < 0.f ? float3(0.f) : secondaryRay.color.rgb;
-//        float falloff = max(1.f, (secondaryRay.hitT * secondaryRay.hitT));
-//        reflectColor *= 20.f / falloff;
-//        float ggxAlpha = min(0.5f, max(1e-8f, bsdfProperties.roughness * bsdfProperties.roughness));
-//        reflectColor += bsdfProperties.specularReflectance * reflectColor * (ggxAlpha * ggxAlpha);
-//    }
-//    return reflectColor;
-//}
-
-//[shader("closesthit")]
-//void primaryClosestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
-//{
-//    // Get the hit-point data.
-//    float3 rayDirW = WorldRayDirection();
-//    float hitT = RayTCurrent();
-//    uint triangleIndex = PrimitiveIndex();
-
-//    // Prepare the shading data.
-//    const GeometryInstanceID instanceID = getGeometryInstanceID();
-//    VertexData v = getVertexData(instanceID, triangleIndex, attribs);
-//    uint materialID = gScene.getMaterialID(instanceID);
-//    ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDirW);
-
-//    // Create material instance and query its properties.
-//    let lod = ExplicitLodTextureSampler(0.f);
-//    let mi = gScene.materials.getMaterialInstance(sd, lod);
-//    let bsdfProperties = mi.getProperties(sd);
-
-//    float3 color = bsdfProperties.emission;
-
-//    uint3 launchIndex = DispatchRaysIndex();
-//    TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(launchIndex.xy, sampleIndex);
-
-//    // Direct lighting from analytic light sources.
-//    for (int i = 0; i < gScene.getLightCount(); i++)
-//    {
-//        AnalyticLightSample ls;
-//        if (evalLightApproximate(sd.posW, gScene.getLight(i), ls))
-//        {
-//            RayDesc shadowRay = { sd.posW, 0.001f, ls.dir, ls.distance };
-//            if (!traceShadowRay(shadowRay))
-//            {
-//                color += mi.eval(sd, ls.dir, sg) * ls.Li;
-//            }
-//        }
-//    }
-
-//    // Shoot a reflection ray.
-//    color += getReflectionColor(sd, bsdfProperties, v.normalW, rayDirW, hitData.depth);
-
-//    hitData.color = float4(color, 1.f);
-//    hitData.hitT = hitT;
-//}
+        // A very non-PBR inaccurate way to do reflections.
+        reflectColor = secondaryRay.hitT < 0.f ? float3(0.f) : secondaryRay.color.rgb;
+        float falloff = max(1.f, (secondaryRay.hitT * secondaryRay.hitT));
+        reflectColor *= 20.f / falloff;
+        float ggxAlpha = min(0.5f, max(1e-8f, bsdfProperties.roughness * bsdfProperties.roughness));
+        reflectColor += bsdfProperties.specularReflectance * reflectColor * (ggxAlpha * ggxAlpha);
+    }
+    return reflectColor;
+}
 
 [shader("closesthit")]
 void primaryClosestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
@@ -180,14 +135,13 @@ void primaryClosestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersection
         AnalyticLightSample ls;
         if (evalLightApproximate(sd.posW, gScene.getLight(i), ls))//there is another function that handle more type of light
         {
-            //RayDesc shadowRay = { sd.posW, 0.001f, ls.dir, ls.distance };
-            //if (!traceShadowRay(shadowRay))
-            //{
-            //    color += mi.eval(sd, ls.dir, sg) * ls.Li;
-            //}
-            //no shadow ray yet
-            color += mi.eval(sd, ls.dir, sg) * ls.Li;
-            
+            RayDesc shadowRay = { sd.posW, 0.001f, ls.dir, ls.distance };
+
+            if (!traceShadowRay(shadowRay))
+            {
+                color += mi.eval(sd, ls.dir, sg) * ls.Li;
+            }
+           
         }
     }
 
@@ -222,6 +176,6 @@ void rayGen()
     
     PrimaryRayData hitData;
     hitData.depth = 0;
-    TraceRay(gScene.rtAccel, 0 /*rayFlags*/, 0xFF, 0 /* ray index*/, rayTypeCount, 0, ray, hitData);
+    TraceRay(gScene.rtAccel, 0 /*rayFlags*/, 0xFF, 0 /* ray index 0 is primary ray*/, rayTypeCount, 0, ray, hitData);
     gOutput[launchIndex.xy] = hitData.color;
 }

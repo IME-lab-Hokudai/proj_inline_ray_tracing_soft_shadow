@@ -56,11 +56,7 @@ public:
 private:
     ref<Scene> mpScene;
     ref<Program> mpRtProgram;
-    //ref<GraphicsState> mpGraphicsState;
     ref<RtProgramVars> mpRtVars;
-    // Internal state
     ref<Fbo> mpFbo;
-    //ref<Sampler> mpLinearSampler;
-    //ref<Texture> mpRtOut;
     uint32_t mSampleIndex = 0xdeadbeef;
 };
