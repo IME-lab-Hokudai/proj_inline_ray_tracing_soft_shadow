@@ -291,6 +291,10 @@ namespace Falcor
         */
         void setScaling(float3 scale) { mScaling = scale; update(); }
 
+         /** Render UI elements for this light.
+         */
+        void renderUI(Gui::Widgets& widget) override;
+
         /** Set light source scale
           */
         float3 getScaling() const { return mScaling; }
@@ -304,6 +308,12 @@ namespace Falcor
         */
         void setTransformMatrix(const float4x4& mtx) { mTransformMatrix = mtx; update();  }
 
+        float3 getTranslation();
+        float3 getRotationXYZ();
+        void setTranslation(float3 translation);
+        void setRotateXYZ(float3 rotations);
+
+
         /** Get transform matrix
         */
         float4x4 getTransformMatrix() const { return mTransformMatrix; }
@@ -315,6 +325,8 @@ namespace Falcor
 
         virtual void update();
 
+        float3 mTranslation;            ///< translation, controls the location of the light
+        float3 mRotationXYZ;            ///< Rotations, controls the orientation of the light
         float3 mScaling;                ///< Scaling, controls the size of the light
         float4x4 mTransformMatrix = float4x4::identity(); ///< Transform matrix minus scaling component
 

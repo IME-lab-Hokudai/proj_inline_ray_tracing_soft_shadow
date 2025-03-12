@@ -345,8 +345,34 @@ namespace Falcor
         mData.surfaceArea = 4.0f;
 
         mScaling = float3(1, 1, 1);
+        mRotationXYZ = float3(0, 0, 0);
+        mTranslation = float3(0, 0, 0);
+
         update();
         mPrevData = mData;
+    }
+
+    void AnalyticAreaLight::renderUI(Gui::Widgets& widget)
+    {
+        Light::renderUI(widget);
+
+        float3 scaling = getScaling();
+        if (widget.var("Scaling", scaling, 0.f, FLT_MAX))
+        {
+            setScaling(scaling);
+        }
+
+        float3 translation = getTranslation();
+        if (widget.var("Translation", translation, -FLT_MAX, FLT_MAX))
+        {
+            setTranslation(translation);
+        }
+
+        float3 rotations = math::degrees(mRotationXYZ);
+        if (widget.var("RotationXYZ in degree", rotations, -FLT_MAX, FLT_MAX))
+        {
+            setRotateXYZ(rotations);
+        }
     }
 
     float AnalyticAreaLight::getPower() const
@@ -354,10 +380,47 @@ namespace Falcor
         return luminance(mData.intensity) * (float)M_PI * mData.surfaceArea;
     }
 
+    float3 AnalyticAreaLight::getTranslation()
+    {
+        //return float3(mTransformMatrix[0][3], mTransformMatrix[1][3], mTransformMatrix[2][3]);
+        return mTranslation;
+    }
+
+    float3 AnalyticAreaLight::getRotationXYZ()
+    {
+        return mRotationXYZ;
+    }
+
+    void AnalyticAreaLight::setTranslation(float3 translation)
+    {
+        // REMARK: dont know why it has to be set via an intermediate matrix
+        //float4x4 tmp = mTransformMatrix;
+        //tmp[0][3] = translation.x;
+        //tmp[1][3] = translation.y;
+        //tmp[2][3] = translation.z;
+        //setTransformMatrix(tmp);
+
+        mTranslation = translation;
+        update();
+    }
+
+    void AnalyticAreaLight::setRotateXYZ(float3 rotations)
+    {
+       // float4x4 tmp = mul(mTransformMatrix, math::matrixFromRotationXYZ(rotations.x, rotations.y, rotations.z));
+       // setTransformMatrix(tmp);
+        float3 radians = math::radians(rotations);
+        mRotationXYZ = radians;
+        update();
+    }
+
     void AnalyticAreaLight::update()
     {
         // Update matrix
-        mData.transMat = mul(mTransformMatrix, math::matrixFromScaling(mScaling));
+        float4x4 T = math::matrixFromTranslation(mTranslation);
+        float4x4 RS = mul(math::matrixFromRotationXYZ(mRotationXYZ.x, mRotationXYZ.y, mRotationXYZ.z), math::matrixFromScaling(mScaling));
+        //mData.transMat = mul(mTransformMatrix, RS);
+        mData.transMat = mul(T, RS);
+        //mData.transMat = mul(mTransformMatrix, math::matrixFromScaling(mScaling));
         mData.transMatIT = inverse(transpose(mData.transMat));
     }
 
@@ -428,7 +491,8 @@ namespace Falcor
 
         pybind11::class_<AnalyticAreaLight, Light, ref<AnalyticAreaLight>> analyticLight(m, "AnalyticAreaLight");
         analyticLight.def_property("scaling", &AnalyticAreaLight::getScaling, &AnalyticAreaLight::setScaling);
-        analyticLight.def_property("transformMatrix", &AnalyticAreaLight::getTransformMatrix, &AnalyticAreaLight::setTransformMatrix);
+        analyticLight.def_property("translation", &AnalyticAreaLight::getTranslation, &AnalyticAreaLight::setTranslation);
+        analyticLight.def_property("rotationXYZ", &AnalyticAreaLight::getRotationXYZ, &AnalyticAreaLight::setRotateXYZ);
 
         pybind11::class_<RectLight, AnalyticAreaLight, ref<RectLight>> rectLight(m, "RectLight");
         rectLight.def(pybind11::init(&RectLight::create), "name"_a = "");
