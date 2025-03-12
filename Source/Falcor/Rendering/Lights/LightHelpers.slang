@@ -91,6 +91,7 @@ bool finalizeAreaLightSample(const float3 shadingPosW, const LightData light, in
     \param[out] ls Light sample struct.
     \return True if a sample was generated, false otherwise.
 */
+// REMARK: sampleRectAreaLight 
 bool sampleRectAreaLight(const float3 shadingPosW, const LightData light, const float2 u, out AnalyticLightSample ls)
 {
     // Pick a random sample on the quad.

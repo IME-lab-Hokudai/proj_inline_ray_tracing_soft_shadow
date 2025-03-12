@@ -462,7 +462,7 @@ void PathTracer::execute(RenderContext* pRenderContext, const RenderData& render
     generatePaths(pRenderContext, renderData);
 
     // Update RTXDI.
-    if (mpRTXDI)
+    if (mpRTXDI)//default null
     {
         const auto& pMotionVectors = renderData.getTexture(kInputMotionVectors);
         mpRTXDI->update(pRenderContext, pMotionVectors);
@@ -473,7 +473,7 @@ void PathTracer::execute(RenderContext* pRenderContext, const RenderData& render
     tracePass(pRenderContext, renderData, *mpTracePass);
 
     // Launch separate passes to trace delta reflection and transmission paths to generate respective guide buffers.
-    if (mOutputNRDAdditionalData)
+    if (mOutputNRDAdditionalData)//default false
     {
         FALCOR_ASSERT(mpTraceDeltaReflectionPass && mpTraceDeltaTransmissionPass);
         tracePass(pRenderContext, renderData, *mpTraceDeltaReflectionPass);
@@ -806,7 +806,7 @@ void PathTracer::updatePrograms()
     mpTracePass->prepareProgram(mpDevice, defines);
 
     // Create specialized trace passes.
-    if (mOutputNRDAdditionalData)
+    if (mOutputNRDAdditionalData)//default false
     {
         if (!mpTraceDeltaReflectionPass)
             mpTraceDeltaReflectionPass = TracePass::create(mpDevice, "traceDeltaReflectionPass", "DELTA_REFLECTION_PASS", mpScene, defines, globalTypeConformances);

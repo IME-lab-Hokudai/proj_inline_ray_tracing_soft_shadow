@@ -385,11 +385,11 @@ struct PathTracer
     bool generateScatterRay(const ShadingData sd, const IMaterialInstance mi, inout PathState path)
     {
         BSDFSample result;
-        bool valid = mi.sample(sd, path.sg, result, kUseBSDFSampling);
+        bool valid = mi.sample(sd, path.sg, result, kUseBSDFSampling); // default kUseBSDFSampling true
         if (valid) valid = generateScatterRay(result, sd, mi, path);
 
         // Ignore valid on purpose for now.
-        if (kOutputNRDData)
+        if (kOutputNRDData)//default false
         {
             const uint lobeTypes = mi.getLobeTypes(sd);
             const bool hasDeltaTransmissionLobe = (lobeTypes & (uint)LobeType::DeltaTransmission) != 0;
@@ -609,6 +609,7 @@ struct PathTracer
         \param[out] ls Struct describing valid samples.
         \return True if the sample is valid and has nonzero contribution, false otherwise.
     */
+    // REMARK: generateAnalyticLightSample
     bool generateAnalyticLightSample(const PathVertex vertex, inout SampleGenerator sg, out LightSample ls)
     {
         ls = {}; // Default initialization to avoid divergence at returns.
@@ -977,7 +978,7 @@ struct PathTracer
                 bool sampleLowerHemisphere = canNeeSampleSphere || ((lobeTypes & (uint)LobeType::NonDeltaTransmission) != 0);
                 if (!kUseLightsInDielectricVolumes && path.isInsideDielectricVolume()) sampleUpperHemisphere = false;
 
-                // Sample a light.
+                // REMARK: call generateLightSample: Sample a light.
                 validSample = generateLightSample(vertex, sampleUpperHemisphere, sampleLowerHemisphere, path.sg, ls);
                 path.setLightSampled(sampleUpperHemisphere, sampleLowerHemisphere);
             }
@@ -1023,7 +1024,7 @@ struct PathTracer
 
         const bool wasDeltaOnlyPathBeforeScattering = path.isDeltaOnlyPath();
 
-        // Generate the next path segment or terminate.
+        // REMARK: Generate the next path segment or terminate. (BSDF importance sampling default)
         bool valid = generateScatterRay(sd, mi, path);
 
         // Output guide data.

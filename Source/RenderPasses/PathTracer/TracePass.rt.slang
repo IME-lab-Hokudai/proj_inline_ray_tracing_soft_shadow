@@ -455,7 +455,7 @@ struct Scheduler
         gPathTracer.setupPathLogging(path);
 
         // Handle primary hit/miss.
-        if (path.isHit())
+        if (path.isHit()) // REMARK: from vBuffer
         {
 #if defined(DELTA_REFLECTION_PASS)
             gPathTracer.handleDeltaReflectionHit(path);
@@ -532,6 +532,7 @@ void scatterTriangleAnyHit(inout PathPayload payload : SV_RayPayload, BuiltInTri
 #endif
 }
 
+// REMARK: scatterTriangleClosestHit
 [shader("closesthit")]
 void scatterTriangleClosestHit(inout PathPayload payload : SV_RayPayload, BuiltInTriangleIntersectionAttributes attribs : SV_IntersectionAttributes)
 {
