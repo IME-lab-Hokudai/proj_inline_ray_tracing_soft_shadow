@@ -908,6 +908,7 @@ int runMain(int argc, char** argv)
         }
     }
 
+    //REMARK sample app config
     SampleAppConfig config;
     if (deviceTypeFlag)
     {
@@ -944,6 +945,8 @@ int runMain(int argc, char** argv)
         config.deviceDesc.enableRaytracingValidation = true;
 
     config.windowDesc.title = "Mogwai";
+    config.windowDesc.width = 2560;
+    config.windowDesc.height = 1440;
     if (widthFlag)
         config.windowDesc.width = args::get(widthFlag);
     if (heightFlag)
