@@ -39,7 +39,10 @@ extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registr
     registry.registerClass<RenderPass, PenumbraClassificationPass>();
 }
 
-PenumbraClassificationPass::PenumbraClassificationPass(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice) {}
+PenumbraClassificationPass::PenumbraClassificationPass(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
+{
+    mpComputePass = ComputePass::create(mpDevice, kShaderFile);
+}
 
 Properties PenumbraClassificationPass::getProperties() const
 {
@@ -50,6 +53,7 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
 {
     // Define the required resources here
     RenderPassReflection reflector;
+    mReady = false;
    if (compileData.connectedResources.getFieldCount() > 0)
    {
        const RenderPassReflection::Field* edge = compileData.connectedResources.getField(kSrc);
@@ -63,6 +67,7 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
         reflector.addInput(kSrc, "Input Vbuffer")
             .format(fmt)
             .texture2D(srcWidth, srcHeight);
+        mReady = true;
    }
    else
    {
@@ -70,6 +75,11 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
        reflector.addOutput(kDst, "Masking texture classify umbra/penumbra");
    }
     return reflector;
+}
+
+void PenumbraClassificationPass::compile(RenderContext* pRenderContext, const CompileData& compileData)
+{
+    //FALCOR_CHECK(mReady, "PenumbraClassificationPass: Missing incoming reflection data");
 }
 
 void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const RenderData& renderData)

@@ -25,35 +25,28 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-#pragma once
-#include "Falcor.h"
-#include "RenderGraph/RenderPass.h"
-#include "RenderGraph/RenderPassHelpers.h"
 
-using namespace Falcor;
+/**
+ * Simple Post FX
+ *
+ * applies vignette, chromatic aberration, barrel distortion, brightness-dependant (de)saturation, offset/scale/power tint per pixel
+ *
+ * also applies bloom which is an energy preserving weighted sum of 'gaussians' plus an optional star shape.
+ * the bloom is calculated by creating an image pyramid fine to coarse, using a 10x10 binomial kernel (implemented via 5x5 bilinear taps)
+ * the downsampling kernel needs to be quite wide to avoid aliasing artefacts
+ * after 8 downsampling steps (so that the final PSF is quite wide - at least 64*10 pixels diameter), we upsample coarse to fine,
+ * at each level blending a small fraction (the 'bloom amount') of the coarser layer with the 'current' layer.
+ * in this way, the final kernel is a blend of gaussians with doubling variance, plus a spike at the middle.
+ * optionally, 6 star like lobes are added by brute force line sampling.
+ */
 
-class PenumbraClassificationPass : public RenderPass
+Texture2D<float4> gSrc;
+Texture2D<float4> gBloomed;
+RWTexture2D<float4> gDst;
+
+[numthreads(16, 16, 1)]
+void runPostFX(uint3 dispatchThreadId: SV_DispatchThreadID)
 {
-public:
-    FALCOR_PLUGIN_CLASS(PenumbraClassificationPass, "PenumbraClassificationPass", "Insert pass description here.");
-
-    static ref<PenumbraClassificationPass> create(ref<Device> pDevice, const Properties& props)
-    {
-        return make_ref<PenumbraClassificationPass>(pDevice, props);
-    }
-
-    PenumbraClassificationPass(ref<Device> pDevice, const Properties& props);
-
-    virtual Properties getProperties() const override;
-    virtual RenderPassReflection reflect(const CompileData& compileData) override;
-    virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override;
-    virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
-    virtual void renderUI(Gui::Widgets& widget) override;
-    virtual void setScene(RenderContext* pRenderContext, const ref<Scene>& pScene) override {}
-    virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
-    virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
-
-private:
-    bool mReady = false;
-    ref<ComputePass> mpComputePass;
-};
+    
+    gDst[pixelPos] = output;
+}

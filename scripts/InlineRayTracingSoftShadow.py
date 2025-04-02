@@ -7,6 +7,7 @@ def render_graph_InlineRayTracingSoftShadow():
     g.create_pass('PenumbraClassificationPass', 'PenumbraClassificationPass', {})
     g.add_edge('VBufferRaster.vbuffer', 'PenumbraClassificationPass.src')
     g.mark_output('PenumbraClassificationPass.dst')
+    g.mark_output('VBufferRaster.vbuffer')
     return g
 
 InlineRayTracingSoftShadow = render_graph_InlineRayTracingSoftShadow()
