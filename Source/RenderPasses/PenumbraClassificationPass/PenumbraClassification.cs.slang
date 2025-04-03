@@ -39,14 +39,17 @@
  * in this way, the final kernel is a blend of gaussians with doubling variance, plus a spike at the middle.
  * optionally, 6 star like lobes are added by brute force line sampling.
  */
+#include "Utils/HostDeviceShared.slangh"
+#include "Utils/Math/MathConstants.slangh"
 
-Texture2D<float4> gSrc;
-Texture2D<float4> gBloomed;
-RWTexture2D<float4> gDst;
+import Scene.RaytracingInline;
+import Utils.Math.Ray;
+
+Texture2D<PackedHitInfo> gSrc;//packed vbuffer
+RWTexture2D<uint32_t> gDst;
 
 [numthreads(16, 16, 1)]
-void runPostFX(uint3 dispatchThreadId: SV_DispatchThreadID)
+void main(uint3 dispatchThreadId: SV_DispatchThreadID)
 {
-    
-    gDst[pixelPos] = output;
+    gDst[dispatchThreadId.xy] = 1;
 }

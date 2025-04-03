@@ -35,7 +35,7 @@ using namespace Falcor;
 class PenumbraClassificationPass : public RenderPass
 {
 public:
-    FALCOR_PLUGIN_CLASS(PenumbraClassificationPass, "PenumbraClassificationPass", "Insert pass description here.");
+    FALCOR_PLUGIN_CLASS(PenumbraClassificationPass, "PenumbraClassificationPass", "This pass take a vbuffer as input and output a texture masking which pixel is lit/umbra/penumbra");
 
     static ref<PenumbraClassificationPass> create(ref<Device> pDevice, const Properties& props)
     {
@@ -49,11 +49,16 @@ public:
     virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override;
     virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
     virtual void renderUI(Gui::Widgets& widget) override;
-    virtual void setScene(RenderContext* pRenderContext, const ref<Scene>& pScene) override {}
+    virtual void setScene(RenderContext* pRenderContext, const ref<Scene>& pScene) override;
     virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
 private:
-    bool mReady = false;
+    ref<Scene> mpScene;
+    ref<SampleGenerator> mpSampleGenerator;
     ref<ComputePass> mpComputePass;
+    /// Selected output size.
+    RenderPassHelpers::IOSize mOutputSizeSelection = RenderPassHelpers::IOSize::Default;
+    /// Output size in pixels when 'Fixed' size is selected.
+    uint2 mFixedOutputSize = {512, 512};
 };

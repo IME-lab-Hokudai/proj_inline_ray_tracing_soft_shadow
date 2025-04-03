@@ -125,7 +125,8 @@ SceneDebugger::SceneDebugger(ref<Device> pDevice, const Properties& props) : Ren
         else if (key == kShowVolumes)
             mParams.showVolumes = value;
         else if (key == kUseVBuffer)
-            mParams.useVBuffer = static_cast<bool>(value);
+            //mParams.useVBuffer = static_cast<bool>(value);
+            mParams.useVBuffer = value;
         else
             logWarning("Unknown property '{}' in a SceneDebugger properties.", key);
     }
@@ -148,6 +149,7 @@ Properties SceneDebugger::getProperties() const
 RenderPassReflection SceneDebugger::reflect(const CompileData& compileData)
 {
     RenderPassReflection reflector;
+
     reflector.addInput("vbuffer", "Visibility buffer in packed format")
         .texture2D()
         .format(ResourceFormat::RGBA32Uint)

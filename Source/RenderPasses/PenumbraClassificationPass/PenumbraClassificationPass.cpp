@@ -32,6 +32,8 @@ namespace
 const char kSrc[] = "src";
 const char kDst[] = "dst";
 const char kShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraClassification.cs.slang";
+const char kOutputSize[] = "outputSize";
+const char kFixedOutputSize[] = "fixedOutputSize";
 } // namespace
 
 extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registry)
@@ -41,51 +43,86 @@ extern "C" FALCOR_API_EXPORT void registerPlugin(Falcor::PluginRegistry& registr
 
 PenumbraClassificationPass::PenumbraClassificationPass(ref<Device> pDevice, const Properties& props) : RenderPass(pDevice)
 {
-    mpComputePass = ComputePass::create(mpDevice, kShaderFile);
+    for (const auto& [key, value] : props)
+    {
+        if (key == kOutputSize) mOutputSizeSelection = value;
+        else if (key == kFixedOutputSize) mFixedOutputSize = value;
+    }
+    
+    mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_TINY_UNIFORM);
 }
 
 Properties PenumbraClassificationPass::getProperties() const
 {
-    return {};
+    Properties props;
+    props[kOutputSize] = mOutputSizeSelection;
+    if (mOutputSizeSelection == RenderPassHelpers::IOSize::Fixed)
+        props[kFixedOutputSize] = mFixedOutputSize;
+    return props;
 }
 
 RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    mReady = false;
-   if (compileData.connectedResources.getFieldCount() > 0)
-   {
-       const RenderPassReflection::Field* edge = compileData.connectedResources.getField(kSrc);
-        uint32_t srcWidth = edge->getWidth();
-        uint32_t srcHeight = edge->getHeight();
-        ResourceFormat fmt = edge->getFormat();
-        reflector.addOutput(kDst, "Masking texture classify umbra/penumbra")
-            .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
-            .format(ResourceFormat::R32Uint)
-            .texture2D(srcWidth, srcHeight);
-        reflector.addInput(kSrc, "Input Vbuffer")
-            .format(fmt)
-            .texture2D(srcWidth, srcHeight);
-        mReady = true;
-   }
-   else
-   {
-       reflector.addInput(kSrc, "Vbuffer");
-       reflector.addOutput(kDst, "Masking texture classify umbra/penumbra");
-   }
+    const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
+    reflector.addInput(kSrc, "Input Vbuffer").format(ResourceFormat::RGBA32Uint);
+    reflector.addOutput(kDst, "Masking texture classify umbra/penumbra")
+                      .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
+                      .format(ResourceFormat::R32Uint)
+                      .texture2D(sz.x,sz.y);
+  
     return reflector;
 }
 
 void PenumbraClassificationPass::compile(RenderContext* pRenderContext, const CompileData& compileData)
 {
-    //FALCOR_CHECK(mReady, "PenumbraClassificationPass: Missing incoming reflection data");
+   
 }
 
 void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
-    // renderData holds the requested resources
-    // auto& pTexture = renderData.getTexture("src");
+    if (mpScene)
+    {
+        // renderData holds the requested resources
+        const auto& pOutput = renderData.getTexture(kDst);
+        const auto& pVBuffer = renderData.getTexture(kSrc);
+
+        ShaderVar var = mpComputePass->getRootVar();
+        var["gSrc"] = pVBuffer;
+        var["gDst"] = pOutput;
+        mpSampleGenerator->bindShaderData(var);
+        mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
+        mpComputePass->execute(pRenderContext, uint3(pOutput->getWidth(), pOutput->getHeight(), 1));
+    }
 }
 
-void PenumbraClassificationPass::renderUI(Gui::Widgets& widget) {}
+void PenumbraClassificationPass::renderUI(Gui::Widgets& widget)
+{
+    // Controls for output size.var["gScene"]
+    // When output size requirements change, we'll trigger a graph recompile to update the render pass I/O sizes.
+    if (widget.dropdown("Output size", mOutputSizeSelection))
+        requestRecompile();
+    if (mOutputSizeSelection == RenderPassHelpers::IOSize::Fixed)
+    {
+        if (widget.var("Size in pixels", mFixedOutputSize, 32u, 16384u))
+            requestRecompile();
+    }
+}
+
+void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const ref<Scene>& pScene)
+{
+    mpScene = pScene;
+    if (mpScene)
+    {
+        // Prepare our programs for the scene.
+        ProgramDesc desc;
+        desc.addShaderModules(mpScene->getShaderModules());
+        desc.addShaderLibrary(kShaderFile).csEntry("main");
+        desc.addTypeConformances(mpScene->getTypeConformances());
+
+        DefineList defines = mpScene->getSceneDefines();
+        defines.add(mpSampleGenerator->getDefines());
+        mpComputePass = ComputePass::create(mpDevice, desc, defines);
+    }
+}
