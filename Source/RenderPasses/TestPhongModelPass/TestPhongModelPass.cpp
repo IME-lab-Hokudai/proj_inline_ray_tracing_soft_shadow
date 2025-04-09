@@ -111,7 +111,7 @@ void TestPhongModelPass::execute(RenderContext* pRenderContext, const RenderData
             var["gShadowMap"] = pShadowMap;
             pShadowMap->setName("Shadow Map");
         }
-            
+
         mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
 }

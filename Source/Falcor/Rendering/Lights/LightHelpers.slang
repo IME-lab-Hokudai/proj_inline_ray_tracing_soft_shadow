@@ -102,8 +102,10 @@ bool sampleRectAreaLight(const float3 shadingPosW, const LightData light, const 
     ls.posW = mul(light.transMat, float4(pos, 1.f)).xyz;
 
     // Setup world space normal.
+    //this control which direction that light is emitted (in object space)
     // TODO: normalW is not correctly oriented for mesh instances that have flipped triangle winding.
-    ls.normalW = normalize(mul(light.transMatIT, float4(0.f, 0.f, 1.f, 0.f)).xyz);
+    //ls.normalW = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f, 0.f)).xyz);
+    ls.normalW = normalize(mul(light.transMatIT, float4(0.f, 0.f, 1.f, 0.f)).xyz); //normal facing Z+, default falcor implementation
 
     return finalizeAreaLightSample(shadingPosW, light, ls);
 }

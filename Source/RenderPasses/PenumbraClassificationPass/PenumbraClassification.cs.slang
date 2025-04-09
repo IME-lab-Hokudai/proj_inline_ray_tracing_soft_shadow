@@ -45,11 +45,43 @@
 import Scene.RaytracingInline;
 import Utils.Math.Ray;
 
-Texture2D<PackedHitInfo> gSrc;//packed vbuffer
-RWTexture2D<uint32_t> gDst;
+Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
+RWTexture2D<uint32_t> penumbraMask;
+
+static float3 getPosW(const float3 orig, const float3 dir, const HitInfo hit)
+{
+    switch (hit.getType())
+    {
+    case HitType::Triangle:
+        return gScene.getVertexData(hit.getTriangleHit()).posW;
+    case HitType::DisplacedTriangle:
+        return gScene.getVertexData(hit.getDisplacedTriangleHit(), -dir).posW;
+    case HitType::Curve:
+        return gScene.getVertexDataFromCurve(hit.getCurveHit()).posW;
+    case HitType::SDFGrid:
+        {
+        return gScene.getVertexDataFromSDFGrid(hit.getSDFGridHit(), orig, dir).posW;
+    }
+    default:
+        // Should not happen. Return the origin.
+        return orig;
+    }
+}
 
 [numthreads(16, 16, 1)]
 void main(uint3 dispatchThreadId: SV_DispatchThreadID)
 {
-    gDst[dispatchThreadId.xy] = 1;
+    uint2 pixel = dispatchThreadId.xy;
+    // Trace primary ray.
+    //const Ray ray = gScene.camera.computeRayPinhole(pixel, params.frameDim);
+    HitInfo hit;
+    float hitT = 1e30f;
+    hit = unpackHitInfo(vbuffer[pixel]);
+    uint32_t mask = 0;//0 is lit or back ground | 1 is umbra | 2 is penumbra
+    if (hit.isValid())
+    {
+        float3 posW = gScene.getVertexData(hit.getTriangleHit()).posW;
+       // LightData light = gScene.getLight[0];
+    }
+    penumbraMask[dispatchThreadId.xy] = 1;
 }

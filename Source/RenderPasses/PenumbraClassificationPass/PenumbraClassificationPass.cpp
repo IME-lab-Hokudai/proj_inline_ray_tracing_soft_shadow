@@ -89,8 +89,8 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         const auto& pVBuffer = renderData.getTexture(kSrc);
 
         ShaderVar var = mpComputePass->getRootVar();
-        var["gSrc"] = pVBuffer;
-        var["gDst"] = pOutput;
+        var["vbuffer"] = pVBuffer;
+        var["penumbraMask"] = pOutput;
         mpSampleGenerator->bindShaderData(var);
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
         mpComputePass->execute(pRenderContext, uint3(pOutput->getWidth(), pOutput->getHeight(), 1));

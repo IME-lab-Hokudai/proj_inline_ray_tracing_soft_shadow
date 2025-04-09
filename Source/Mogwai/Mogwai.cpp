@@ -542,6 +542,7 @@ namespace Mogwai
         {
             try
             {
+                //REMARK load scene from file
                 TimeReport timeReport;
                 setScene(SceneBuilder(getDevice(), path, getSettings(), buildFlags).getScene());
                 timeReport.measure("Loading scene (total)");
