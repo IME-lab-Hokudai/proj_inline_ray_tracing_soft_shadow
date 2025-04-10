@@ -1607,7 +1607,7 @@ namespace Falcor
         // Update changed lights.
         uint32_t activeLightIndex = 0;
         mActiveLights.clear();
-
+        bool hasAnalyticLightMoved = false;
         for (const auto& light : mLights)
         {
             if (!light->isActive()) continue;
@@ -1619,6 +1619,13 @@ namespace Falcor
             {
                 // TODO: This is slow since the buffer is not CPU writable. Copy into CPU buffer and upload once instead.
                 mpLightsBuffer->setElement(activeLightIndex, light->getData());
+
+                if (light->getType() == LightType::Rect)
+                {
+                    ref<AnalyticAreaLight> pRectLight = static_ref_cast<AnalyticAreaLight>(light);
+                    updateNodeTransform(pRectLight->getNodeID(), pRectLight->getTransformMatrix());
+                    hasAnalyticLightMoved = true; 
+                }
             }
 
             activeLightIndex++;
@@ -1638,7 +1645,8 @@ namespace Falcor
         if (is_set(combinedChanges, Light::Changes::Active)) flags |= IScene::UpdateFlags::LightCountChanged;
         const Light::Changes otherChanges = ~(Light::Changes::Intensity | Light::Changes::Position | Light::Changes::Direction | Light::Changes::Active);
         if ((combinedChanges & otherChanges) != Light::Changes::None) flags |= IScene::UpdateFlags::LightPropertiesChanged;
-
+        if (hasAnalyticLightMoved)
+            flags |= IScene::UpdateFlags::GeometryMoved;
         return flags;
     }
 
@@ -1898,7 +1906,7 @@ namespace Falcor
         if (is_set(mUpdates, IScene::UpdateFlags::GeometryMoved))
         {
             invalidateTlasCache();
-            updateGeometryInstances(false);
+            updateGeometryInstances(true);
         }
 
         // Update existing BLASes if skinned animation and/or procedural primitives moved.

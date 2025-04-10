@@ -483,6 +483,8 @@ namespace Falcor
         analyticLight.def_property("scaling", &AnalyticAreaLight::getScaling, &AnalyticAreaLight::setScaling);
         analyticLight.def_property("translation", &AnalyticAreaLight::getTranslation, &AnalyticAreaLight::setTranslation);
         analyticLight.def_property("rotationEulerDeg", &AnalyticAreaLight::getRotationEulerDeg, &AnalyticAreaLight::setRotateEulerDeg);
+        analyticLight.def_property("meshID", &AnalyticAreaLight::getMeshID, &AnalyticAreaLight::setMeshID);
+        analyticLight.def_property("nodeID", &AnalyticAreaLight::getNodeID, &AnalyticAreaLight::setNodeID);
 
         pybind11::class_<RectLight, AnalyticAreaLight, ref<RectLight>> rectLight(m, "RectLight");
         rectLight.def(pybind11::init(&RectLight::create), "name"_a = "");

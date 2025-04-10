@@ -31,8 +31,6 @@
 light = StandardMaterial('Light')
 light.emissiveColor = float3(1, 1, 1)
 light.emissiveFactor = 0.5
-#floor.baseColor = float4(0.725, 0.71, 0.68, 1.0)
-#floor.roughness = 0.5
 
 floor = StandardMaterial('Floor')
 floor.baseColor = float4(0.725, 0.71, 0.68, 1.0)
@@ -104,14 +102,15 @@ sceneBuilder.addMeshInstance(
     sceneBuilder.addTriangleMesh(cubeMesh, smallBox)
 )
 
-sceneBuilder.addMeshInstance(
-    sceneBuilder.addNode('Light', Transform(scaling=0.2, translation=float3(0, 0.549, 0), rotationEulerDeg=float3(180, 0, 0))),
-    sceneBuilder.addTriangleMesh(quadMesh, light)
-)
-
+lightMeshID = sceneBuilder.addTriangleMesh(quadMesh, light)
+lightNodeID = sceneBuilder.addNode('Light', Transform(scaling=0.1, translation=float3(0, 0.549, 0), rotationEulerDeg=float3(180, 0, 0)))
+sceneBuilder.addMeshInstance(lightNodeID, lightMeshID)
+#sceneBuilder.addMeshInstance(
+#    sceneBuilder.addNode('Light', Transform(scaling=0.2, translation=float3(0, 0.549, 0), rotationEulerDeg=float3(180, 0, 0))),
+#    sceneBuilder.addTriangleMesh(quadMesh, light)
+#)
 
 # Create camera
-
 camera = Camera()
 camera.position = float3(0, 0.28, 1.2)
 camera.target = float3(0, 0.28, 0)
@@ -125,4 +124,6 @@ rectLight.intensity = float3(1.0, 1.0, 1.0)
 rectLight.scaling = float3(0.1, 0.1, 1.0)
 rectLight.translation = float3(0.0, 0.549, 0.0)
 rectLight.rotationEulerDeg = float3(0.0, 0.0, 0.0)
+rectLight.nodeID = lightNodeID
+#rectLight.meshID = lightMeshID
 sceneBuilder.addLight(rectLight)
