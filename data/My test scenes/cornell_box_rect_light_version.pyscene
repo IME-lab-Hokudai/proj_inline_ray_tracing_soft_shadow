@@ -102,13 +102,9 @@ sceneBuilder.addMeshInstance(
     sceneBuilder.addTriangleMesh(cubeMesh, smallBox)
 )
 
-lightMeshID = sceneBuilder.addTriangleMesh(quadMesh, light)
-lightNodeID = sceneBuilder.addNode('Light', Transform(scaling=0.1, translation=float3(0, 0.549, 0), rotationEulerDeg=float3(180, 0, 0)))
+lightMeshID = sceneBuilder.addTriangleMesh(quadMesh, light, isAnimated=True)
+lightNodeID = sceneBuilder.addNode('Light', Transform(scaling=0.2, translation=float3(0, 0.549, 0), rotationEulerDeg=float3(180, 0, 0)))
 sceneBuilder.addMeshInstance(lightNodeID, lightMeshID)
-#sceneBuilder.addMeshInstance(
-#    sceneBuilder.addNode('Light', Transform(scaling=0.2, translation=float3(0, 0.549, 0), rotationEulerDeg=float3(180, 0, 0))),
-#    sceneBuilder.addTriangleMesh(quadMesh, light)
-#)
 
 # Create camera
 camera = Camera()
@@ -121,9 +117,8 @@ sceneBuilder.addCamera(camera)
 # Add rect light
 rectLight = RectLight('Rectangular Area light')
 rectLight.intensity = float3(1.0, 1.0, 1.0)
-rectLight.scaling = float3(0.1, 0.1, 1.0)
+rectLight.scaling = float3(0.1, 0.1, 0.1)
 rectLight.translation = float3(0.0, 0.549, 0.0)
-rectLight.rotationEulerDeg = float3(0.0, 0.0, 0.0)
+rectLight.rotationEulerDeg = float3(180.0, 0.0, 0.0)
 rectLight.nodeID = lightNodeID
-#rectLight.meshID = lightMeshID
 sceneBuilder.addLight(rectLight)

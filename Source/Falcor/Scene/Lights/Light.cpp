@@ -421,8 +421,8 @@ namespace Falcor
         AnalyticAreaLight::update();
 
         float rx = length(transformVector(mData.transMat, float3(1.0f, 0.0f, 0.0f)));
-        float ry = length(transformVector(mData.transMat, float3(0.0f, 1.0f, 0.0f)));
-        mData.surfaceArea = 4.0f * rx * ry;
+        float rz = length(transformVector(mData.transMat, float3(0.0f, 0.0f, 1.0f)));
+        mData.surfaceArea = 4.0f * rx * rz;
     }
 
     // DiscLight

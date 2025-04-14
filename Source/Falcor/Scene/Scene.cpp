@@ -3540,6 +3540,7 @@ namespace Falcor
                 FALCOR_ASSERT(mMeshDesc[meshList[j].get()].isFrontFaceCW() == frontFaceCW);
             }
 
+            //REMARK falcor is right-handed and CW
             // Set the triangle winding for the instance if it differs from the default.
             // The default in DXR is that a triangle is front facing if its vertices appear clockwise
             // from the ray origin, in object space in a left-handed coordinate system.
