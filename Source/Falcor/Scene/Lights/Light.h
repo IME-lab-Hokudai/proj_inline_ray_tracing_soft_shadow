@@ -337,7 +337,7 @@ namespace Falcor
 
         //for visualization 
         MeshID mMeshID;
-        uint32_t mNodeID;
+        uint32_t mNodeID; //nodeID associated with the meshID representing the analytic area light source
         friend class SceneCache;
     };
 
