@@ -118,7 +118,7 @@ sceneBuilder.addCamera(camera)
 rectLight = RectLight('Rectangular Area light')
 rectLight.intensity = float3(1.0, 1.0, 1.0)
 rectLight.scaling = float3(0.1, 0.1, 0.1)
-rectLight.translation = float3(0.0, 0.549, 0.0)
+rectLight.translation = float3(0.0, 0.548, 0.0)
 rectLight.rotationEulerDeg = float3(180.0, 0.0, 0.0)
 rectLight.nodeID = lightNodeID
 sceneBuilder.addLight(rectLight)

@@ -415,14 +415,24 @@ namespace Falcor
     }
 
     // RectLight
-
     void RectLight::update()
     {
-        AnalyticAreaLight::update();
+        //**** default falcor code ****
+        //AnalyticAreaLight::update();
+        //float rx = length(transformVector(mData.transMat, float3(1.0f, 0.0f, 0.0f)));
+        //float ry = length(transformVector(mData.transMat, float3(0.0f, 1.0f, 0.0f)));
+        //mData.surfaceArea = 4.0f*rx * ry;
+        //**** end default falcor code ****
 
-        float rx = length(transformVector(mData.transMat, float3(1.0f, 0.0f, 0.0f)));
-        float rz = length(transformVector(mData.transMat, float3(0.0f, 0.0f, 1.0f)));
-        mData.surfaceArea = 4.0f * rx * rz;
+
+        // Custom setup:
+        // - We're using a quad mesh with a base size of 1x1 units centered at the origin.
+        // - The rect light lies on the XZ plane and emits along the +Y axis.
+        // - So its two extents are in X and Z directions, and surface area is width * height.
+        AnalyticAreaLight::update();
+        float rx = length(transformVector(mData.transMat, float3(0.5f, 0.0f, 0.0f)));
+        float rz = length(transformVector(mData.transMat, float3(0.0f, 0.0f, 0.5f)));
+        mData.surfaceArea = 4.0f*rx * rz;
     }
 
     // DiscLight

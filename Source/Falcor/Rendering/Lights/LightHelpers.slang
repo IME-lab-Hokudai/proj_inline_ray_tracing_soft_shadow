@@ -1,4 +1,4 @@
-﻿/***************************************************************************
+/***************************************************************************
  # Copyright (c) 2015-22, NVIDIA CORPORATION. All rights reserved.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -112,7 +112,7 @@ bool sampleRectAreaLight(const float3 shadingPosW, const LightData light, const 
 
     // Sample point in object space on the XZ-plane (instead of XY).
     // The quad spans from (-1,-1,0) to (1,1,0) in object space originally (on XY),
-    // so now we remap it to (-1,0,-1) to (1,0,1) on XZ.
+    // so now we remap it to (-0.5,0,-0.5) to (0.5,0,0.5) on XZ. (so base size is 1x1 instead of 2x2 as in default code)
     //float3 pos = float3(u.x * 2.f - 1.f, 0.f, u.y * 2.f - 1.f); // 📌 On XZ plane
     float3 pos = float3(u.x - .5f, 0.f, u.y - .5f); // 📌 On XZ plane
 
@@ -120,7 +120,7 @@ bool sampleRectAreaLight(const float3 shadingPosW, const LightData light, const 
     ls.posW = mul(light.transMat, float4(pos, 1.f)).xyz;
 
     // Setup world space normal (pointing up along +Y).
-    ls.normalW = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f, 0.f)).xyz); // 📌 normal = Y+
+    ls.normalW = normalize(mul(light.transMatIT, float4(0.f, 1.0f, 0.f, 0.f)).xyz); // 📌 normal = Y+
 
     return finalizeAreaLightSample(shadingPosW, light, ls);
 }

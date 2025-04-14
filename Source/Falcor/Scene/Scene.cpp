@@ -1607,7 +1607,6 @@ namespace Falcor
         // Update changed lights.
         uint32_t activeLightIndex = 0;
         mActiveLights.clear();
-        bool hasAnalyticLightMoved = false;
         for (const auto& light : mLights)
         {
             if (!light->isActive()) continue;
@@ -1623,8 +1622,12 @@ namespace Falcor
                 if (light->getType() == LightType::Rect)
                 {
                     ref<AnalyticAreaLight> pRectLight = static_ref_cast<AnalyticAreaLight>(light);
-                    updateNodeTransform(pRectLight->getNodeID(), pRectLight->getTransformMatrix());
-                    hasAnalyticLightMoved = true; 
+                    float3 normalLocal = float3(0.f, 1.f, 0.f);
+                    float3 normalWorld = normalize(mul((float3x3)pRectLight->getTransformMatrix(), normalLocal));
+                    float epsilon = 0.001f; 
+                    float3 offset = -normalWorld * epsilon; //move the representative mesh back a little bit compared to actual light pos to avoid floating point error result in light ray being blocked
+                    float4x4 offsetMat = math::matrixFromTranslation(offset);
+                    updateNodeTransform(pRectLight->getNodeID(), mul(offsetMat,pRectLight->getTransformMatrix()));
                 }
             }
 
@@ -1645,8 +1648,7 @@ namespace Falcor
         if (is_set(combinedChanges, Light::Changes::Active)) flags |= IScene::UpdateFlags::LightCountChanged;
         const Light::Changes otherChanges = ~(Light::Changes::Intensity | Light::Changes::Position | Light::Changes::Direction | Light::Changes::Active);
         if ((combinedChanges & otherChanges) != Light::Changes::None) flags |= IScene::UpdateFlags::LightPropertiesChanged;
-        if (hasAnalyticLightMoved)
-            flags |= IScene::UpdateFlags::GeometryMoved;
+
         return flags;
     }
 
