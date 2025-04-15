@@ -25,41 +25,34 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-#pragma once
-#include "Falcor.h"
-#include "RenderGraph/RenderPass.h"
-#include "RenderGraph/RenderPassHelpers.h"
 
-using namespace Falcor;
+Texture2D<uint32_t> gInput;    // penumbra mask texture
+RWTexture2D<uint32_t> gOutput; // upscale mask texture
 
-class PenumbraClassificationPass : public RenderPass
+[numthreads(16, 16, 1)]
+void maxPoolingBasedUpscale(uint3 dispatchThreadId: SV_DispatchThreadID)
 {
-public:
-    FALCOR_PLUGIN_CLASS(PenumbraClassificationPass, "PenumbraClassificationPass", "This pass take a vbuffer as input and output a texture masking which pixel is lit/umbra/penumbra");
+    uint2 inputRes, outputRes, scale;
+    gInput.GetDimensions(inputRes.x, inputRes.y);
+    gOutput.GetDimensions(outputRes.x, outputRes.y);
+    scale = outputRes / inputRes;
 
-    static ref<PenumbraClassificationPass> create(ref<Device> pDevice, const Properties& props)
-    {
-        return make_ref<PenumbraClassificationPass>(pDevice, props);
-    }
+    uint2 upscalePixelCoord = dispatchThreadId.xy;
+    uint2 inputPixelCoord = upscalePixelCoord / scale;
 
-    PenumbraClassificationPass(ref<Device> pDevice, const Properties& props);
+    // Clamp inputPixel and its neighbors to stay in bounds
+    uint2 ip0 = clamp(inputPixelCoord, uint2(0, 0), inputRes - 1);
+    uint2 ip1 = clamp(inputPixelCoord + uint2(1, 0), uint2(0, 0), inputRes - 1);
+    uint2 ip2 = clamp(inputPixelCoord + uint2(0, 1), uint2(0, 0), inputRes - 1);
+    uint2 ip3 = clamp(inputPixelCoord + uint2(1, 1), uint2(0, 0), inputRes - 1);
 
-    virtual Properties getProperties() const override;
-    virtual RenderPassReflection reflect(const CompileData& compileData) override;
-    virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override;
-    virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
-    virtual void renderUI(Gui::Widgets& widget) override;
-    virtual void setScene(RenderContext* pRenderContext, const ref<Scene>& pScene) override;
-    virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
-    virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
+    // Sample 2x2 neighborhood
+    uint v0 = gInput[ip0];
+    uint v1 = gInput[ip1];
+    uint v2 = gInput[ip2];
+    uint v3 = gInput[ip3];
 
-private:
-    ref<Scene> mpScene;
-    ref<SampleGenerator> mpSampleGenerator;
-    ref<ComputePass> mpClassificationPass;
-    ref<ComputePass> mpUpscalePass;
-    /// Selected output size.
-    RenderPassHelpers::IOSize mOutputSizeSelection = RenderPassHelpers::IOSize::Default;
-    /// Output size in pixels when 'Fixed' size is selected.
-    uint2 mFixedOutputSize = {512, 512};
-};
+    // Max pooling: output is 1 if any neighbor is 1
+    uint result = max(max(v0, v1), max(v2, v3));
+    gOutput[upscalePixelCoord] = result;
+}

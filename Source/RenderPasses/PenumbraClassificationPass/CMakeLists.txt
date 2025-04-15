@@ -4,6 +4,7 @@ target_sources(PenumbraClassificationPass PRIVATE
     PenumbraClassificationPass.cpp
     PenumbraClassificationPass.h
     PenumbraClassification.cs.slang
+    UpScale.cs.slang
 )
 
 target_copy_shaders(PenumbraClassificationPass RenderPasses/PenumbraClassificationPass)

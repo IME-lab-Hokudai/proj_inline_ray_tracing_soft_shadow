@@ -31,7 +31,9 @@ namespace
 {
 const char kSrc[] = "src";
 const char kDst[] = "dst";
-const char kShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraClassification.cs.slang";
+const char kUpscaleDst[] = "upscaleDst";
+const char kClassifyPassShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraClassification.cs.slang";
+const char kUpscalePassShaderFile[] = "RenderPasses/PenumbraClassificationPass/UpScale.cs.slang";
 const char kOutputSize[] = "outputSize";
 const char kFixedOutputSize[] = "fixedOutputSize";
 } // namespace
@@ -67,11 +69,15 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
     RenderPassReflection reflector;
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
     reflector.addInput(kSrc, "Input Vbuffer").format(ResourceFormat::RGBA32Uint);
-    reflector.addOutput(kDst, "Masking texture classify umbra/penumbra")
+    reflector.addOutput(kDst, "Masking texture (at lower res half/quarter) classify umbra/penumbra")
                       .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
                       .format(ResourceFormat::R32Uint)
                       .texture2D(sz.x,sz.y);
-  
+
+    reflector.addOutput(kUpscaleDst, "Masking texture (upscale to original res) classify umbra/penumbra")
+        .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
+        .format(ResourceFormat::R32Uint)
+        .texture2D(compileData.defaultTexDims.x, compileData.defaultTexDims.y);
     return reflector;
 }
 
@@ -85,15 +91,21 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
     if (mpScene)
     {
         // renderData holds the requested resources
-        const auto& pOutput = renderData.getTexture(kDst);
+        const auto& pClassifyOutput = renderData.getTexture(kDst);
         const auto& pVBuffer = renderData.getTexture(kSrc);
 
-        ShaderVar var = mpComputePass->getRootVar();
+        ShaderVar var = mpClassificationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
-        var["penumbraMask"] = pOutput;
+        var["penumbraMask"] = pClassifyOutput;
         mpSampleGenerator->bindShaderData(var);
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
-        mpComputePass->execute(pRenderContext, uint3(pOutput->getWidth(), pOutput->getHeight(), 1));
+        mpClassificationPass->execute(pRenderContext, uint3(pClassifyOutput->getWidth(), pClassifyOutput->getHeight(), 1));
+
+        const auto& pUpscaleOutput = renderData.getTexture(kUpscaleDst);
+        var = mpUpscalePass->getRootVar();
+        var["gInput"] = pClassifyOutput;
+        var["gOutput"] = pUpscaleOutput;
+        mpUpscalePass->execute(pRenderContext, uint3(pUpscaleOutput->getWidth(), pUpscaleOutput->getHeight(), 1));
     }
 }
 
@@ -116,13 +128,21 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
     if (mpScene)
     {
         // Prepare our programs for the scene.
-        ProgramDesc desc;
-        desc.addShaderModules(mpScene->getShaderModules());
-        desc.addShaderLibrary(kShaderFile).csEntry("main");
-        desc.addTypeConformances(mpScene->getTypeConformances());
+        ProgramDesc classifyPassDesc;
+        classifyPassDesc.addShaderModules(mpScene->getShaderModules());
+        classifyPassDesc.addShaderLibrary(kClassifyPassShaderFile).csEntry("main");
+        classifyPassDesc.addTypeConformances(mpScene->getTypeConformances());
 
-        DefineList defines = mpScene->getSceneDefines();
-        defines.add(mpSampleGenerator->getDefines());
-        mpComputePass = ComputePass::create(mpDevice, desc, defines);
+        DefineList classifyPassDefines = mpScene->getSceneDefines();
+        classifyPassDefines.add(mpSampleGenerator->getDefines());
+        mpClassificationPass = ComputePass::create(mpDevice, classifyPassDesc, classifyPassDefines);
+
+        ProgramDesc upscalePassdesc;
+        upscalePassdesc.addShaderModules(mpScene->getShaderModules());
+        upscalePassdesc.addShaderLibrary(kUpscalePassShaderFile).csEntry("maxPoolingBasedUpscale");
+        upscalePassdesc.addTypeConformances(mpScene->getTypeConformances());
+
+        DefineList upscalePassDefines = mpScene->getSceneDefines();
+        mpUpscalePass = ComputePass::create(mpDevice, upscalePassdesc, upscalePassDefines);
     }
 }
