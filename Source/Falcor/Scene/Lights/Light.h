@@ -320,8 +320,8 @@ namespace Falcor
 
         void updateFromAnimation(const float4x4& transform) override { setTransformMatrix(transform); }
 
-        MeshID getMeshID() { return mMeshID; }
-        void setMeshID(MeshID pMeshID) { mMeshID = pMeshID; }
+        uint32_t getMeshID() { return mMeshID; }
+        void setMeshID(uint32_t pMeshID) { mMeshID = pMeshID; }
 
         uint32_t getNodeID() { return mNodeID; }
         void setNodeID(uint32_t pNodeID) { mNodeID = pNodeID; }
@@ -336,7 +336,7 @@ namespace Falcor
         float4x4 mTransformMatrix = float4x4::identity(); ///< Transform matrix minus scaling component
 
         //for visualization 
-        MeshID mMeshID;
+        uint32_t mMeshID;
         uint32_t mNodeID; //nodeID associated with the meshID representing the analytic area light source
         friend class SceneCache;
     };

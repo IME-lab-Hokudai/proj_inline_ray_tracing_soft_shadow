@@ -72,16 +72,39 @@ static float3 getPosW(const float3 orig, const float3 dir, const HitInfo hit)
 void main(uint3 dispatchThreadId: SV_DispatchThreadID)
 {
     uint2 pixel = dispatchThreadId.xy;
+    uint2 frameDim;
+    penumbraMask.GetDimensions(frameDim.x, frameDim.y);
     // Trace primary ray.
-    //const Ray ray = gScene.camera.computeRayPinhole(pixel, params.frameDim);
+    //const Ray ray = gScene.camera.computeRayPinhole(pixel, frameDim);
     HitInfo hit;
     float hitT = 1e30f;
     hit = unpackHitInfo(vbuffer[pixel]);
-    uint32_t mask = 0;//0 is lit or back ground | 1 is umbra | 2 is penumbra
+    uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
+    penumbraMask[dispatchThreadId.xy] = 0;//default to background
     if (hit.isValid())
     {
-        float3 posW = gScene.getVertexData(hit.getTriangleHit()).posW;
-       // LightData light = gScene.getLight[0];
+        Ray ray;
+        VertexData vertexData = gScene.getVertexData(hit.getTriangleHit());
+        ray.origin = vertexData.posW;
+        LightData light = gScene.getLight(0);
+        if (light.type == (uint)LightType::Rect) {
+            float3 lightPos = mul(light.transMat, float4(0, 0, 0, 1.f)).xyz;
+            float3 toLightDir = lightPos - vertexData.posW;
+            float3 normToLightDir = normalize(toLightDir);
+            float3 lightWorldNormal = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f,0.f))).xyz;
+            float NdotL = dot(-normToLightDir, lightWorldNormal); // point that not facing the light
+            if (NdotL <= 0) { // point that not facing the light
+                return;
+            }
+            ray.dir = normalize(toLightDir);
+            ray.tMin = 0.001;
+            ray.tMax = length(toLightDir) - 0.01;
+
+            SceneRayQuery<false> sceneRayQuery;
+            bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
+            if (!isVisible) {
+                penumbraMask[dispatchThreadId.xy] = 1;
+            }
+        }
     }
-    penumbraMask[dispatchThreadId.xy] = 1;
 }

@@ -2800,6 +2800,7 @@ namespace Falcor
                     GeometryInstanceData instance(geomType);
                     instance.globalMatrixID = nodeID.getSlang();
                     instance.materialID = mesh.materialId.getSlang();
+                    //REMARK geometryID in Scene.slang is actually meshID
                     instance.geometryID = meshID.getSlang();
                     instance.vbOffset = mesh.staticVertexOffset;
                     instance.ibOffset = mesh.indexOffset;

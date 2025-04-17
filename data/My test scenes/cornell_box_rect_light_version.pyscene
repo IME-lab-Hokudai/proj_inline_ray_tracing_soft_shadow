@@ -121,4 +121,5 @@ rectLight.scaling = float3(0.1, 0.1, 0.1)
 rectLight.translation = float3(0.0, 0.548, 0.0)
 rectLight.rotationEulerDeg = float3(180.0, 0.0, 0.0)
 rectLight.nodeID = lightNodeID
+rectLight.meshID = lightMeshID
 sceneBuilder.addLight(rectLight)
