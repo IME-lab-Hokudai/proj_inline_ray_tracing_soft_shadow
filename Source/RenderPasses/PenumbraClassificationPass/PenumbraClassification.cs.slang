@@ -45,6 +45,11 @@
 import Scene.RaytracingInline;
 import Utils.Math.Ray;
 
+cbuffer PerFrameCB
+{
+    uint lightRepresentMeshID;
+};
+
 Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
 RWTexture2D<uint32_t> penumbraMask;
 
@@ -88,12 +93,16 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
         ray.origin = vertexData.posW;
         LightData light = gScene.getLight(0);
         if (light.type == (uint)LightType::Rect) {
+            GeometryInstanceID instanceID = hit.getInstanceID();
             float3 lightPos = mul(light.transMat, float4(0, 0, 0, 1.f)).xyz;
             float3 toLightDir = lightPos - vertexData.posW;
             float3 normToLightDir = normalize(toLightDir);
             float3 lightWorldNormal = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f,0.f))).xyz;
             float NdotL = dot(-normToLightDir, lightWorldNormal); // point that not facing the light
-            if (NdotL <= 0) { // point that not facing the light
+            if (NdotL <= 0) { // point that not facing the light is umbra
+                if (gScene.getGeometryInstance(instanceID).geometryID == lightRepresentMeshID)
+                    return;
+                penumbraMask[dispatchThreadId.xy] = 1;
                 return;
             }
             ray.dir = normalize(toLightDir);

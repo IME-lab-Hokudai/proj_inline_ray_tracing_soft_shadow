@@ -97,6 +97,7 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         ShaderVar var = mpClassificationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
         var["penumbraMask"] = pClassifyOutput;
+        var["PerFrameCB"]["lightRepresentMeshID"] = mpRectLight->getMeshID();
         mpSampleGenerator->bindShaderData(var);
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
         mpClassificationPass->execute(pRenderContext, uint3(pClassifyOutput->getWidth(), pClassifyOutput->getHeight(), 1));
@@ -144,5 +145,7 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
 
         DefineList upscalePassDefines = mpScene->getSceneDefines();
         mpUpscalePass = ComputePass::create(mpDevice, upscalePassdesc, upscalePassDefines);
+
+        mpRectLight = static_ref_cast<AnalyticAreaLight>(mpScene->getLight(0));
     }
 }

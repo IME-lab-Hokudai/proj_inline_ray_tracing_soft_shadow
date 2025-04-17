@@ -62,4 +62,5 @@ private:
     RenderPassHelpers::IOSize mOutputSizeSelection = RenderPassHelpers::IOSize::Default;
     /// Output size in pixels when 'Fixed' size is selected.
     uint2 mFixedOutputSize = {512, 512};
+    ref<AnalyticAreaLight> mpRectLight;
 };

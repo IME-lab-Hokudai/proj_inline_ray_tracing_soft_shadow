@@ -173,8 +173,6 @@ void VBufferRaster::execute(RenderContext* pRenderContext, const RenderData& ren
 
     auto var = mRaster.pVars->getRootVar();
     var["PerFrameCB"]["gFrameDim"] = mFrameDim;
-    ref<AnalyticAreaLight> pRectLight = static_ref_cast<AnalyticAreaLight>(mpScene->getLight(0));
-    var["PerFrameCB"]["lightRepresentMeshID"] = pRectLight->getMeshID();
 
     // Bind extra channels as UAV buffers.
     for (const auto& channel : kVBufferExtraChannels)

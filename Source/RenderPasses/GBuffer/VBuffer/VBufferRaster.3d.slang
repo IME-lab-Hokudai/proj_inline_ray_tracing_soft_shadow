@@ -34,7 +34,6 @@ RasterizerOrderedTexture2D<float> gMask;
 cbuffer PerFrameCB
 {
     uint2 gFrameDim;
-    uint lightRepresentMeshID;
 };
 
 #define is_valid(name) (is_valid_##name != 0)
@@ -106,11 +105,6 @@ VBufferPSOut psMain(VBufferVSOut vsOut, uint triangleIndex: SV_PrimitiveID, floa
     if (gScene.materials.alphaTest(v, vsOut.materialID, lod))
         discard;
 #endif
-    //REMARK ***custom code for Inline Ray Tracing Soft Shadow***
-    //if (gScene.getGeometryInstance(vsOut.instanceID).geometryID == lightRepresentMeshID)
-      //  discard;
-    //***end custom code***
-
     if (is_valid(gMask))
         gMask[ipos] = 1.f;
 
