@@ -52,6 +52,7 @@ PenumbraClassificationPass::PenumbraClassificationPass(ref<Device> pDevice, cons
     }
     
     mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_TINY_UNIFORM);
+    FALCOR_ASSERT(mpSampleGenerator)
 }
 
 Properties PenumbraClassificationPass::getProperties() const
