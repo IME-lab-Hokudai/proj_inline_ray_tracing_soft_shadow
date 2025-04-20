@@ -2550,7 +2550,7 @@ namespace Falcor
         // It should run after optimizeMaterials() as materials with different
         // textures may be reduced to identical materials after optimization,
         // increasing the likelihood of finding duplicates here.
-
+        //REMARK duplicated materials are removed
         if (is_set(mFlags, Flags::DontMergeMaterials)) return;
 
         std::vector<MaterialID> idMap;

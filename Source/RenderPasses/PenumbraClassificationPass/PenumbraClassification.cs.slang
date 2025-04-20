@@ -110,6 +110,7 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
         VertexData vertexData = gScene.getVertexData(hit.getTriangleHit());
         ray.origin = vertexData.posW;
         LightData light = gScene.getLight(0);
+        SceneRayQuery<false> sceneRayQuery;
         if (light.type == (uint)LightType::Rect) {
             GeometryInstanceID instanceID = hit.getInstanceID();
             float3 lightWorldNormal = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f, 0.f))).xyz;
@@ -130,8 +131,7 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
                 ray.dir = normalize(toLightDir);
                 ray.tMin = 0.001;
                 ray.tMax = length(toLightDir) - 0.01;
-
-                SceneRayQuery<false> sceneRayQuery;
+                
                 bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
                 if (!isVisible) {
                     blockedRayCounter++;
