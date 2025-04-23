@@ -56,6 +56,7 @@ RenderPassReflection IRLSSNaiveImplement::reflect(const CompileData& compileData
     // Define the required resources here
     RenderPassReflection reflector;
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
+    //REMARK MSAA is set via texture sample count. Note that all fbo attachment have to have same sample count.
     reflector.addOutput("output", "Color").texture2D(sz.x, sz.y, 4);
     // Add the required depth output. This always exists.
     reflector.addOutput("depth", "Depth buffer")
