@@ -28,6 +28,7 @@
 
 Texture2D<float32_t> gInput;    // penumbra mask texture
 RWTexture2D<float32_t> gOutput; // upscale mask texture
+SamplerState gSampler;
 
 [numthreads(16, 16, 1)]
 void maxPoolingBasedUpscale(uint3 dispatchThreadId: SV_DispatchThreadID)
@@ -52,6 +53,18 @@ void maxPoolingBasedUpscale(uint3 dispatchThreadId: SV_DispatchThreadID)
     float32_t v2 = gInput[ip2];
     float32_t v3 = gInput[ip3];
 
-    float32_t result = max(max(v0, v1), max(v2, v3));
-    gOutput[upscalePixelCoord] = result;
+    gOutput[upscalePixelCoord] = 0.25 * (v0 + v1 + v2 + v3);
+}
+
+[numthreads(16, 16, 1)]
+void bilinearUpscale(uint3 dispatchThreadId: SV_DispatchThreadID)
+{
+    uint2 outputRes;
+    gOutput.GetDimensions(outputRes.x, outputRes.y);
+
+    float2 uv = float2(dispatchThreadId.xy) / float2(outputRes); // Normalized UV in [0, 1]
+
+    float sampledValue = gInput.SampleLevel(gSampler, uv, 0.0); // 0.0 = base mip level
+
+    gOutput[dispatchThreadId.xy] = sampledValue;
 }

@@ -54,6 +54,10 @@ PenumbraClassificationPass::PenumbraClassificationPass(ref<Device> pDevice, cons
     }
     
     mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_TINY_UNIFORM);
+    Sampler::Desc linearSamplerDesc;
+    linearSamplerDesc.setFilterMode(TextureFilteringMode::Linear, TextureFilteringMode::Linear, TextureFilteringMode::Linear);
+
+    mpLinearSampler = mpDevice->createSampler(linearSamplerDesc);
     FALCOR_ASSERT(mpSampleGenerator)
 }
 
@@ -127,6 +131,7 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         var = mpUpscalePass->getRootVar();
         var["gInput"] = pPenumbraIntensityOutput;
         var["gOutput"] = pUpscaleOutput;
+        var["gSampler"] = mpLinearSampler;
         mpUpscalePass->execute(pRenderContext, uint3(pUpscaleOutput->getWidth(), pUpscaleOutput->getHeight(), 1));
     }
 }
@@ -170,7 +175,7 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
 
         ProgramDesc upscalePassdesc;
         upscalePassdesc.addShaderModules(mpScene->getShaderModules());
-        upscalePassdesc.addShaderLibrary(kUpscalePassShaderFile).csEntry("maxPoolingBasedUpscale");
+        upscalePassdesc.addShaderLibrary(kUpscalePassShaderFile).csEntry("bilinearUpscale");
         upscalePassdesc.addTypeConformances(mpScene->getTypeConformances());
 
         DefineList upscalePassDefines = mpScene->getSceneDefines();

@@ -65,30 +65,27 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     // The light vector aims opposite the direction the light rays travel.
     // float3 lightVec = -dirLightData.dirW;
     float3 lightPos = mul(light.transMat, float4(0, 0, 0, 1.f)).xyz;
-    float3 toLightDir = lightPos - vsOut.posW;
+    float3 toLightDir = normalize(lightPos - vsOut.posW);
 
-    // Scale light down by Lambert's cosine law.
-    //float3 normalSampleW = NormalSampleToWorldSpace(normalSample, normalize(vsOut.normalW), vsOut.tangentW.rgb);
+    // ambient
+    float3 ambientColor = 0.1 * baseColorSample.rgb;
 
     // diffuse calculation
     float ndotl = max(dot(toLightDir, normalSampleW), 0.0f);
-    float3 diffuseColor = baseColorSample.rgb * ndotl;
+    float3 diffuseColor = ndotl * baseColorSample.rgb * light.intensity;
+    //float3 diffuseColor = baseColorSample.rgb * light.intensity;
 
     // specular calculation
-    const float shininess = specularSample.r;
-    const float m = shininess * 256.0f;
+    const float shininess = 32.f;
     float3 halfVec = normalize(viewDir + toLightDir);
-
-    float roughnessFactor = (m + 8.0f) * pow(max(dot(halfVec, normalSampleW), 0.0f), m) / 8.0f;
-    // float3 fresnelFactor = SchlickFresnel(mat.FresnelR0, halfVec, lightVec);
-    float3 specColor = specularSample.rgb*roughnessFactor;
-
+    float ndoth = max(dot(halfVec, normalSampleW), 0.0f);
+    float3 specular = pow(ndoth, shininess) * specularSample.rgb * light.intensity;
     // Our spec formula goes outside [0,1] range, but we are
     // doing LDR rendering.  So scale it down a bit.
-    specColor = specColor / (specColor + 1.0f);
+    //specColor = specColor / (specColor + 1.0f);
 
     // float3 litColor = (diffuseColor + specColor) * light.intensity  + emissiveSample.rgb;
-    float3 litColor = baseColorSample.rgb*(1 - penumbraMask[vsOut.posH.xy]);
+    float3 litColor = ambientColor + (1 - penumbraMask[vsOut.posH.xy])*(diffuseColor + specular) + emissiveSample.rgb;
     return float4(litColor,1.0f);
     // return emissiveSample;
     //return baseColorSample;

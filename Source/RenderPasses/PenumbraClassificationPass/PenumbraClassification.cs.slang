@@ -105,7 +105,7 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
     HitInfo hit;
     hit = unpackHitInfo(vbuffer[pixel]);
     uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
-    penumbraMask[dispatchThreadId.xy] = 0;//default to background
+    penumbraMask[dispatchThreadId.xy] = 0;//clear default to background
     if (hit.isValid())
     {
         Ray ray;
@@ -130,6 +130,7 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
                     blockedRayCounter = kNumLightSamples;
                     break;
                 }
+
                 ray.dir = normalize(toLightDir);
                 ray.tMin = 0.001;
                 ray.tMax = length(toLightDir) - 0.01;
@@ -139,6 +140,7 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
                     blockedRayCounter++;
                 }
             }
+
             if (blockedRayCounter > 0) {
                 penumbraMask[dispatchThreadId.xy] = (blockedRayCounter < kNumLightSamples) ? 2 : 1;
             }

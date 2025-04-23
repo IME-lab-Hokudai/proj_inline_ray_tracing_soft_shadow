@@ -125,6 +125,9 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
     penumbraMask.GetDimensions(frameDim.x, frameDim.y);
     if (any(pixel >= frameDim))
         return;
+
+    penumbraIntensity[pixel] = 0.f; //to clear previous frame value
+
     if (penumbraMask[pixel] == 0) { // lit or background
         penumbraIntensity[pixel] = 0.f; // lit or background
         return;
