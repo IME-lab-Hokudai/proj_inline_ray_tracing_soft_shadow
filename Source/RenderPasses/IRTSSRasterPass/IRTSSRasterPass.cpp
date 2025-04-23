@@ -57,12 +57,12 @@ RenderPassReflection IRTSSRasterPass::reflect(const CompileData& compileData)
     RenderPassReflection reflector;
     reflector.addInput("PenumbraMask", "output of penumbra classification pass").format(ResourceFormat::R32Float);
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
-    reflector.addOutput("output", "Color");
+    reflector.addOutput("output", "Color").texture2D(sz.x, sz.y, 4);
     // Add the required depth output. This always exists.
     reflector.addOutput("depth", "Depth buffer")
         .format(ResourceFormat::D32Float)
         .bindFlags(ResourceBindFlags::DepthStencil)
-        .texture2D(sz.x, sz.y);
+        .texture2D(sz.x, sz.y, 4);
     return reflector;
 }
 

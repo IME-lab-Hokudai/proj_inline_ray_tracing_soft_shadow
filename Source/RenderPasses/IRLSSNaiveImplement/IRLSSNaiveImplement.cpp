@@ -43,7 +43,6 @@ IRLSSNaiveImplement::IRLSSNaiveImplement(ref<Device> pDevice, const Properties& 
     mpFbo = Fbo::create(mpDevice);
     Sampler::Desc samplerDesc;
     samplerDesc.setFilterMode(TextureFilteringMode::Linear, TextureFilteringMode::Linear, TextureFilteringMode::Linear);
-
     mpLinearSampler = mpDevice->createSampler(samplerDesc);
 }
 
@@ -57,12 +56,12 @@ RenderPassReflection IRLSSNaiveImplement::reflect(const CompileData& compileData
     // Define the required resources here
     RenderPassReflection reflector;
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
-    reflector.addOutput("output", "Color");
+    reflector.addOutput("output", "Color").texture2D(sz.x, sz.y, 4);
     // Add the required depth output. This always exists.
     reflector.addOutput("depth", "Depth buffer")
         .format(ResourceFormat::D32Float)
         .bindFlags(ResourceBindFlags::DepthStencil)
-        .texture2D(sz.x, sz.y);
+        .texture2D(sz.x, sz.y, 4);
     return reflector;
 }
 
