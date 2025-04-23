@@ -164,7 +164,6 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
         classifyPassDefines.add(mpSampleGenerator->getDefines());
         mpCoarseClassificationPass = ComputePass::create(mpDevice, classifyPassDesc, classifyPassDefines);
 
-        
         ProgramDesc intensityPassdesc;
         intensityPassdesc.addShaderModules(mpScene->getShaderModules());
         intensityPassdesc.addShaderLibrary(kIntensityCalculationShaderFile).csEntry("main");
@@ -180,7 +179,6 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
 
         DefineList upscalePassDefines = mpScene->getSceneDefines();
         mpUpscalePass = ComputePass::create(mpDevice, upscalePassdesc, upscalePassDefines);
-
 
         mpRectLight = static_ref_cast<AnalyticAreaLight>(mpScene->getLight(0));
     }
