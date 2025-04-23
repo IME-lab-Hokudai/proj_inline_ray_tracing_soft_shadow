@@ -2,8 +2,7 @@ import Scene.Raster; // Imports defaultVS.
 
 SamplerState gSampler;
 
-Texture2D<uint32_t> penumbraMask;
-
+Texture2D<float32_t> penumbraMask;
 cbuffer PerFrameCB
 {
     
@@ -89,8 +88,8 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     specColor = specColor / (specColor + 1.0f);
 
     // float3 litColor = (diffuseColor + specColor) * light.intensity  + emissiveSample.rgb;
-    float3 litColor = baseColorSample.rgb;
-     //return float4(litColor,1.0f);
+    float3 litColor = baseColorSample.rgb*(1 - penumbraMask[vsOut.posH.xy]);
+    return float4(litColor,1.0f);
     // return emissiveSample;
-    return baseColorSample;
+    //return baseColorSample;
 }

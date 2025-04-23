@@ -32,7 +32,9 @@ namespace
 const char kSrc[] = "src";
 const char kDst[] = "dst";
 const char kUpscaleDst[] = "upscaleDst";
+const char kIntenisyDst[] = "penumbraIntensity";
 const char kClassifyPassShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraClassification.cs.slang";
+const char kIntensityCalculationShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraIntensity.cs.slang";
 const char kUpscalePassShaderFile[] = "RenderPasses/PenumbraClassificationPass/UpScale.cs.slang";
 const char kOutputSize[] = "outputSize";
 const char kFixedOutputSize[] = "fixedOutputSize";
@@ -75,9 +77,14 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
                       .format(ResourceFormat::R32Uint)
                       .texture2D(sz.x,sz.y);
 
+    reflector.addOutput(kIntenisyDst, "Shadow intensity")
+                      .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
+                      .format(ResourceFormat::R32Float)
+                      .texture2D(sz.x,sz.y);
+
     reflector.addOutput(kUpscaleDst, "Masking texture (upscale to original res) classify umbra/penumbra")
         .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
-        .format(ResourceFormat::R32Uint)
+        .format(ResourceFormat::R32Float)
         .texture2D(compileData.defaultTexDims.x, compileData.defaultTexDims.y);
     return reflector;
 }
@@ -92,20 +99,33 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
     if (mpScene)
     {
         // renderData holds the requested resources
-        const auto& pClassifyOutput = renderData.getTexture(kDst);
+        const auto& pCoarseClassifyOutput = renderData.getTexture(kDst);
         const auto& pVBuffer = renderData.getTexture(kSrc);
 
-        ShaderVar var = mpClassificationPass->getRootVar();
+        //coarse classification pass
+        ShaderVar var = mpCoarseClassificationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
-        var["penumbraMask"] = pClassifyOutput;
+        var["penumbraMask"] = pCoarseClassifyOutput;
         var["PerFrameCB"]["lightRepresentMeshID"] = mpRectLight->getMeshID();
         mpSampleGenerator->bindShaderData(var);
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
-        mpClassificationPass->execute(pRenderContext, uint3(pClassifyOutput->getWidth(), pClassifyOutput->getHeight(), 1));
+        mpCoarseClassificationPass->execute(pRenderContext, uint3(pCoarseClassifyOutput->getWidth(), pCoarseClassifyOutput->getHeight(), 1));
 
+        //intensity pass
+        const auto& pPenumbraIntensityOutput = renderData.getTexture(kIntenisyDst);
+        var = mpIntensityCalculationPass->getRootVar();
+        var["vbuffer"] = pVBuffer;
+        var["penumbraMask"] = pCoarseClassifyOutput;
+        var["penumbraIntensity"] = pPenumbraIntensityOutput;
+        mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
+        mpIntensityCalculationPass->execute(
+            pRenderContext, uint3(pPenumbraIntensityOutput->getWidth(), pPenumbraIntensityOutput->getHeight(), 1)
+        );
+
+        //upscale pass
         const auto& pUpscaleOutput = renderData.getTexture(kUpscaleDst);
         var = mpUpscalePass->getRootVar();
-        var["gInput"] = pClassifyOutput;
+        var["gInput"] = pPenumbraIntensityOutput;
         var["gOutput"] = pUpscaleOutput;
         mpUpscalePass->execute(pRenderContext, uint3(pUpscaleOutput->getWidth(), pUpscaleOutput->getHeight(), 1));
     }
@@ -137,7 +157,16 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
 
         DefineList classifyPassDefines = mpScene->getSceneDefines();
         classifyPassDefines.add(mpSampleGenerator->getDefines());
-        mpClassificationPass = ComputePass::create(mpDevice, classifyPassDesc, classifyPassDefines);
+        mpCoarseClassificationPass = ComputePass::create(mpDevice, classifyPassDesc, classifyPassDefines);
+
+        
+        ProgramDesc intensityPassdesc;
+        intensityPassdesc.addShaderModules(mpScene->getShaderModules());
+        intensityPassdesc.addShaderLibrary(kIntensityCalculationShaderFile).csEntry("main");
+        intensityPassdesc.addTypeConformances(mpScene->getTypeConformances());
+
+        DefineList intensityPassDefines = mpScene->getSceneDefines();
+        mpIntensityCalculationPass = ComputePass::create(mpDevice, intensityPassdesc, intensityPassDefines);
 
         ProgramDesc upscalePassdesc;
         upscalePassdesc.addShaderModules(mpScene->getShaderModules());
@@ -146,6 +175,7 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
 
         DefineList upscalePassDefines = mpScene->getSceneDefines();
         mpUpscalePass = ComputePass::create(mpDevice, upscalePassdesc, upscalePassDefines);
+
 
         mpRectLight = static_ref_cast<AnalyticAreaLight>(mpScene->getLight(0));
     }

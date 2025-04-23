@@ -55,7 +55,7 @@ RenderPassReflection IRTSSRasterPass::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    reflector.addInput("PenumbraMask", "output of penumbra classification pass").format(ResourceFormat::R32Uint);
+    reflector.addInput("PenumbraMask", "output of penumbra classification pass").format(ResourceFormat::R32Float);
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
     reflector.addOutput("output", "Color");
     // Add the required depth output. This always exists.

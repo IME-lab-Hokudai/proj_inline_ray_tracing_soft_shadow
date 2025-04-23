@@ -26,8 +26,8 @@
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
 
-Texture2D<uint32_t> gInput;    // penumbra mask texture
-RWTexture2D<uint32_t> gOutput; // upscale mask texture
+Texture2D<float32_t> gInput;    // penumbra mask texture
+RWTexture2D<float32_t> gOutput; // upscale mask texture
 
 [numthreads(16, 16, 1)]
 void maxPoolingBasedUpscale(uint3 dispatchThreadId: SV_DispatchThreadID)
@@ -47,12 +47,11 @@ void maxPoolingBasedUpscale(uint3 dispatchThreadId: SV_DispatchThreadID)
     uint2 ip3 = clamp(inputPixelCoord + uint2(1, 1), uint2(0, 0), inputRes - 1);
 
     // Sample 2x2 neighborhood
-    uint v0 = gInput[ip0];
-    uint v1 = gInput[ip1];
-    uint v2 = gInput[ip2];
-    uint v3 = gInput[ip3];
+    float32_t v0 = gInput[ip0];
+    float32_t v1 = gInput[ip1];
+    float32_t v2 = gInput[ip2];
+    float32_t v3 = gInput[ip3];
 
-    // Max pooling: output is 1 if any neighbor is 1
-    uint result = max(max(v0, v1), max(v2, v3));
+    float32_t result = max(max(v0, v1), max(v2, v3));
     gOutput[upscalePixelCoord] = result;
 }

@@ -56,7 +56,8 @@ public:
 private:
     ref<Scene> mpScene;
     ref<SampleGenerator> mpSampleGenerator;
-    ref<ComputePass> mpClassificationPass;
+    ref<ComputePass> mpCoarseClassificationPass;
+    ref<ComputePass> mpIntensityCalculationPass;
     ref<ComputePass> mpUpscalePass;
     /// Selected output size.
     RenderPassHelpers::IOSize mOutputSizeSelection = RenderPassHelpers::IOSize::Default;

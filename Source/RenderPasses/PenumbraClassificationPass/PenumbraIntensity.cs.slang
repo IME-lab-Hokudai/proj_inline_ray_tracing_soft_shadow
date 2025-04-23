@@ -51,8 +51,10 @@ cbuffer PerFrameCB
 };
 
 Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
-RWTexture2D<uint32_t> penumbraMask;
-static const int kNumLightSamples = 9;
+Texture2D<uint32_t> penumbraMask;
+RWTexture2D<float32_t> penumbraIntensity; //0 is lit/background | 1 is umbra | (0,1) is penumbra
+static const int kNumLightSamples = 32;
+
 static float3 getPosW(const float3 orig, const float3 dir, const HitInfo hit)
 {
     switch (hit.getType())
@@ -75,20 +77,43 @@ static float3 getPosW(const float3 orig, const float3 dir, const HitInfo hit)
 
 float3 getRectSampleOffset(uint index)
 {
-    // Each cell = 1/3 → half cell = 1/6 ≈ 0.1667
-    // First sample center at -0.5 + 1/6 = -0.333...
-    float3 offsets[9] = {
-        float3(-0.3333f, 0.0f, 0.3333f),
-        float3(0.0000f, 0.0f, 0.3333f),
-        float3(0.3333f, 0.0f, 0.3333f),
-        float3(-0.3333f, 0.0f, 0.0000f),
-        float3(0.0000f, 0.0f, 0.0000f),
-        float3(0.3333f, 0.0f, 0.0000f),
-        float3(-0.3333f, 0.0f, -0.3333f),
-        float3(0.0000f, 0.0f, -0.3333f),
-        float3(0.3333f, 0.0f, -0.3333f),
-    };
+    float3 offsets[32] = {
+        float3(-0.4375f, 0.0f, 0.3750f),
+    float3(-0.3125f, 0.0f, 0.3750f),
+    float3(-0.1875f, 0.0f, 0.3750f),
+        float3(-0.0625f, 0.0f, 0.3750f),
+    float3(0.0625f, 0.0f, 0.3750f),
+    float3(0.1875f, 0.0f, 0.3750f),
+        float3(0.3125f, 0.0f, 0.3750f),
+    float3(0.4375f, 0.0f, 0.3750f),
 
+        float3(-0.4375f, 0.0f, 0.1250f),
+    float3(-0.3125f, 0.0f, 0.1250f),
+    float3(-0.1875f, 0.0f, 0.1250f),
+        float3(-0.0625f, 0.0f, 0.1250f),
+    float3(0.0625f, 0.0f, 0.1250f),
+    float3(0.1875f, 0.0f, 0.1250f),
+        float3(0.3125f, 0.0f, 0.1250f),
+    float3(0.4375f, 0.0f, 0.1250f),
+
+        float3(-0.4375f, 0.0f, -0.1250f),
+    float3(-0.3125f, 0.0f, -0.1250f),
+    float3(-0.1875f, 0.0f, -0.1250f),
+        float3(-0.0625f, 0.0f, -0.1250f),
+    float3(0.0625f, 0.0f, -0.1250f),
+    float3(0.1875f, 0.0f, -0.1250f),
+        float3(0.3125f, 0.0f, -0.1250f),
+    float3(0.4375f, 0.0f, -0.1250f),
+
+        float3(-0.4375f, 0.0f, -0.3750f),
+    float3(-0.3125f, 0.0f, -0.3750f),
+    float3(-0.1875f, 0.0f, -0.3750f),
+        float3(-0.0625f, 0.0f, -0.3750f),
+    float3(0.0625f, 0.0f, -0.3750f),
+    float3(0.1875f, 0.0f, -0.3750f),
+        float3(0.3125f, 0.0f, -0.3750f),
+    float3(0.4375f, 0.0f, -0.3750f),
+    };
     return offsets[index];
 }
 
@@ -100,12 +125,19 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
     penumbraMask.GetDimensions(frameDim.x, frameDim.y);
     if (any(pixel >= frameDim))
         return;
-    // Trace primary ray.
-    //const Ray ray = gScene.camera.computeRayPinhole(pixel, frameDim);
+    if (penumbraMask[pixel] == 0) { // lit or background
+        penumbraIntensity[pixel] = 0.f; // lit or background
+        return;
+    }
+    if (penumbraMask[pixel] == 1) { // umbra
+        penumbraIntensity[pixel] = 1.f;
+        return;
+    }
+
+    //*** casting rays for penumbra
     HitInfo hit;
     hit = unpackHitInfo(vbuffer[pixel]);
     uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
-    penumbraMask[dispatchThreadId.xy] = 0;//default to background
     if (hit.isValid())
     {
         Ray ray;
@@ -114,22 +146,12 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
         LightData light = gScene.getLight(0);
         SceneRayQuery<false> sceneRayQuery;
         if (light.type == (uint)LightType::Rect) {
-            GeometryInstanceID instanceID = hit.getInstanceID();
-            float3 lightWorldNormal = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f, 0.f))).xyz;
             int blockedRayCounter = 0;
             [unroll]
             for (int i = 0; i < kNumLightSamples; i++) {
                 float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(i), 1.f)).xyz;
                 float3 toLightDir = lightPos - vertexData.posW;
-                float3 normToLightDir = normalize(toLightDir);
-                
-                float NdotL = dot(-normToLightDir, lightWorldNormal);
-                if (NdotL <= 0) { // point that not facing the light is umbra
-                    if (gScene.getGeometryInstance(instanceID).geometryID == lightRepresentMeshID) //except rect mesh used for light representing
-                        break;
-                    blockedRayCounter = kNumLightSamples;
-                    break;
-                }
+              
                 ray.dir = normalize(toLightDir);
                 ray.tMin = 0.001;
                 ray.tMax = length(toLightDir) - 0.01;
@@ -139,9 +161,7 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
                     blockedRayCounter++;
                 }
             }
-            if (blockedRayCounter > 0) {
-                penumbraMask[dispatchThreadId.xy] = (blockedRayCounter < kNumLightSamples) ? 2 : 1;
-            }
+            penumbraIntensity[pixel] = (float)blockedRayCounter / kNumLightSamples;
         }
     }
 }

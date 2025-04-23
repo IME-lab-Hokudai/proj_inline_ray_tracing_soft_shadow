@@ -53,11 +53,11 @@ rightWall.baseColor = float4(0.14, 0.45, 0.091, 1.0)
 rightWall.roughness = 0.5
 
 largeBox = StandardMaterial('Large Box')
-largeBox.baseColor = float4(0.725, 0.71, 0.68, 1.0)
+largeBox.baseColor = float4(0.8, 0.1, 0.1, 1.0)
 largeBox.roughness = 0.5
 
 smallBox = StandardMaterial('Small Box')
-smallBox.baseColor = float4(0.725, 0.71, 0.68, 1.0)
+smallBox.baseColor = float4(0.1, 0.8, 0.1, 1.0)
 smallBox.roughness = 0.5
 
 # Create geometry
