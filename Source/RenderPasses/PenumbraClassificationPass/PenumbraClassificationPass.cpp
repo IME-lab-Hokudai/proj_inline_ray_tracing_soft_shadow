@@ -31,11 +31,11 @@ namespace
 {
 const char kSrc[] = "src";
 const char kDst[] = "dst";
-const char kUpscaleDst[] = "upscaleDst";
+//const char kUpscaleDst[] = "upscaleDst";
 const char kIntenisyDst[] = "penumbraIntensity";
 const char kClassifyPassShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraClassification.cs.slang";
 const char kIntensityCalculationShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraIntensity.cs.slang";
-const char kUpscalePassShaderFile[] = "RenderPasses/PenumbraClassificationPass/UpScale.cs.slang";
+//const char kUpscalePassShaderFile[] = "RenderPasses/PenumbraClassificationPass/UpScale.cs.slang";
 const char kOutputSize[] = "outputSize";
 const char kFixedOutputSize[] = "fixedOutputSize";
 } // namespace
@@ -53,12 +53,11 @@ PenumbraClassificationPass::PenumbraClassificationPass(ref<Device> pDevice, cons
         else if (key == kFixedOutputSize) mFixedOutputSize = value;
     }
     
-    mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_TINY_UNIFORM);
-    Sampler::Desc linearSamplerDesc;
-    linearSamplerDesc.setFilterMode(TextureFilteringMode::Linear, TextureFilteringMode::Linear, TextureFilteringMode::Linear);
+    //mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_TINY_UNIFORM);
+    //Sampler::Desc linearSamplerDesc;
+    //linearSamplerDesc.setFilterMode(TextureFilteringMode::Linear, TextureFilteringMode::Linear, TextureFilteringMode::Linear);
 
-    mpLinearSampler = mpDevice->createSampler(linearSamplerDesc);
-    FALCOR_ASSERT(mpSampleGenerator)
+    //mpLinearSampler = mpDevice->createSampler(linearSamplerDesc);
 }
 
 Properties PenumbraClassificationPass::getProperties() const
@@ -86,10 +85,10 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
                       .format(ResourceFormat::R32Float)
                       .texture2D(sz.x,sz.y);
 
-    reflector.addOutput(kUpscaleDst, "Masking texture (upscale to original res) classify umbra/penumbra")
-        .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
-        .format(ResourceFormat::R32Float)
-        .texture2D(compileData.defaultTexDims.x, compileData.defaultTexDims.y);
+    //reflector.addOutput(kUpscaleDst, "Masking texture (upscale to original res) classify umbra/penumbra")
+    //    .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
+    //    .format(ResourceFormat::R32Float)
+    //    .texture2D(compileData.defaultTexDims.x, compileData.defaultTexDims.y);
     return reflector;
 }
 
@@ -111,7 +110,7 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         var["vbuffer"] = pVBuffer;
         var["penumbraMask"] = pCoarseClassifyOutput;
         var["PerFrameCB"]["lightRepresentMeshID"] = mpRectLight->getMeshID();
-        mpSampleGenerator->bindShaderData(var);
+        //mpSampleGenerator->bindShaderData(var);
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
         mpCoarseClassificationPass->execute(pRenderContext, uint3(pCoarseClassifyOutput->getWidth(), pCoarseClassifyOutput->getHeight(), 1));
 
@@ -127,12 +126,12 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         );
 
         //upscale pass
-        const auto& pUpscaleOutput = renderData.getTexture(kUpscaleDst);
-        var = mpUpscalePass->getRootVar();
-        var["gInput"] = pPenumbraIntensityOutput;
-        var["gOutput"] = pUpscaleOutput;
-        var["gSampler"] = mpLinearSampler;
-        mpUpscalePass->execute(pRenderContext, uint3(pUpscaleOutput->getWidth(), pUpscaleOutput->getHeight(), 1));
+        //const auto& pUpscaleOutput = renderData.getTexture(kUpscaleDst);
+        //var = mpUpscalePass->getRootVar();
+        //var["gInput"] = pPenumbraIntensityOutput;
+        //var["gOutput"] = pUpscaleOutput;
+        //var["gSampler"] = mpLinearSampler;
+        //mpUpscalePass->execute(pRenderContext, uint3(pUpscaleOutput->getWidth(), pUpscaleOutput->getHeight(), 1));
     }
 }
 
@@ -161,7 +160,7 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
         classifyPassDesc.addTypeConformances(mpScene->getTypeConformances());
 
         DefineList classifyPassDefines = mpScene->getSceneDefines();
-        classifyPassDefines.add(mpSampleGenerator->getDefines());
+        //classifyPassDefines.add(mpSampleGenerator->getDefines());
         mpCoarseClassificationPass = ComputePass::create(mpDevice, classifyPassDesc, classifyPassDefines);
 
         ProgramDesc intensityPassdesc;
@@ -172,13 +171,13 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
         DefineList intensityPassDefines = mpScene->getSceneDefines();
         mpIntensityCalculationPass = ComputePass::create(mpDevice, intensityPassdesc, intensityPassDefines);
 
-        ProgramDesc upscalePassdesc;
+       /* ProgramDesc upscalePassdesc;
         upscalePassdesc.addShaderModules(mpScene->getShaderModules());
         upscalePassdesc.addShaderLibrary(kUpscalePassShaderFile).csEntry("bilinearUpscale");
         upscalePassdesc.addTypeConformances(mpScene->getTypeConformances());
 
         DefineList upscalePassDefines = mpScene->getSceneDefines();
-        mpUpscalePass = ComputePass::create(mpDevice, upscalePassdesc, upscalePassDefines);
+        mpUpscalePass = ComputePass::create(mpDevice, upscalePassdesc, upscalePassDefines);*/
 
         mpRectLight = static_ref_cast<AnalyticAreaLight>(mpScene->getLight(0));
     }

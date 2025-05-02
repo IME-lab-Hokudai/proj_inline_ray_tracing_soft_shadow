@@ -28,25 +28,24 @@
 #pragma once
 #include "Falcor.h"
 #include "RenderGraph/RenderPass.h"
-#include "RenderGraph/RenderPassHelpers.h"
 
 using namespace Falcor;
 
-class PenumbraClassificationPass : public RenderPass
+class UpscalePass : public RenderPass
 {
 public:
-    FALCOR_PLUGIN_CLASS(PenumbraClassificationPass, "PenumbraClassificationPass", "This pass take a vbuffer as input and output a texture masking which pixel is lit/umbra/penumbra");
+    FALCOR_PLUGIN_CLASS(UpscalePass, "UpscalePass", "Insert pass description here.");
 
-    static ref<PenumbraClassificationPass> create(ref<Device> pDevice, const Properties& props)
+    static ref<UpscalePass> create(ref<Device> pDevice, const Properties& props)
     {
-        return make_ref<PenumbraClassificationPass>(pDevice, props);
+        return make_ref<UpscalePass>(pDevice, props);
     }
 
-    PenumbraClassificationPass(ref<Device> pDevice, const Properties& props);
+    UpscalePass(ref<Device> pDevice, const Properties& props);
 
     virtual Properties getProperties() const override;
     virtual RenderPassReflection reflect(const CompileData& compileData) override;
-    virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override;
+    virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override {}
     virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
     virtual void renderUI(Gui::Widgets& widget) override;
     virtual void setScene(RenderContext* pRenderContext, const ref<Scene>& pScene) override;
@@ -55,14 +54,7 @@ public:
 
 private:
     ref<Scene> mpScene;
-    //ref<SampleGenerator> mpSampleGenerator;
-    ref<ComputePass> mpCoarseClassificationPass;
-    ref<ComputePass> mpIntensityCalculationPass;
-    //ref<ComputePass> mpUpscalePass;
-    //ref<Sampler> mpLinearSampler;
-    /// Selected output size.
-    RenderPassHelpers::IOSize mOutputSizeSelection = RenderPassHelpers::IOSize::Default;
-    /// Output size in pixels when 'Fixed' size is selected.
-    uint2 mFixedOutputSize = {512, 512};
-    ref<AnalyticAreaLight> mpRectLight;
+    ref<ComputePass> mpUpscalePass;
+    ref<Sampler> mpLinearSampler;
 };
+

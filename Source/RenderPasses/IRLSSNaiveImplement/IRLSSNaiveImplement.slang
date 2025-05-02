@@ -130,22 +130,12 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     Ray ray;
     SceneRayQuery<false> sceneRayQuery;
     ray.origin = vsOut.posW;
-    //GeometryInstanceID instanceID = hit.getInstanceID();
-    //float3 lightWorldNormal = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f, 0.f))).xyz;
     [unroll]
     for (int i = 0; i < kNumLightSamples; i++) {
 
         float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(i), 1.f)).xyz;
         float3 toLightDir = lightPos - vsOut.posW;
         float3 normToLightDir = normalize(toLightDir);
-
-        //float NdotL = dot(-normToLightDir, lightWorldNormal);
-        //if (NdotL <= 0) { // point that not facing the light is umbra
-        //    if (gScene.getGeometryInstance(instanceID).geometryID == lightRepresentMeshID) // except rect mesh used for light representing
-        //        break;
-        //    blockedRayCounter = kNumLightSamples;
-        //    break;
-        //}
 
         ray.dir = normalize(toLightDir);
         ray.tMin = 0.001;
