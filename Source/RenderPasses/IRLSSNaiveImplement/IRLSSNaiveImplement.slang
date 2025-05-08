@@ -146,8 +146,8 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
             blockedRayCounter++;
         }
     }
-    float shadowIntensity = (float)blockedRayCounter / kNumLightSamples;
-   
+     float shadowIntensity = (float)blockedRayCounter / kNumLightSamples;
+    //float shadowIntensity = 0.f;
     float3 litColor = ambientColor + (1 - shadowIntensity)*(diffuseColor + specular) + emissiveSample.rgb;
     return float4(litColor,1.0f);
 }
