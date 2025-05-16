@@ -777,7 +777,8 @@ SlangCompileRequest* ProgramManager::createSlangCompileRequest(const Program& pr
 
     // Set debug level
     if (mGenerateDebugInfo || is_set(program.mDesc.compilerFlags, SlangCompilerFlags::GenerateDebugInfo))
-        spSetDebugInfoLevel(pSlangRequest, SLANG_DEBUG_INFO_LEVEL_STANDARD);
+        //spSetDebugInfoLevel(pSlangRequest, SLANG_DEBUG_INFO_LEVEL_STANDARD);
+        spSetDebugInfoLevel(pSlangRequest, SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
 
     // Configure any flags for the Slang compilation step
     SlangCompileFlags slangFlags = 0;

@@ -92,13 +92,19 @@ float3 getRectSampleOffset(uint index)
     return offsets[index];
 }
 
+bool IsValidScreenCoord(uint2 pixelCoord, uint2 frameDim) {
+    return !any(pixelCoord >= frameDim);
+}
+
 [numthreads(16, 16, 1)]
 void main(uint3 dispatchThreadId: SV_DispatchThreadID)
 {
     uint2 pixel = dispatchThreadId.xy;
     uint2 frameDim;
     penumbraMask.GetDimensions(frameDim.x, frameDim.y);
-    if (any(pixel >= frameDim))
+    //if (any(pixel >= frameDim))
+    //    return;
+    if (!IsValidScreenCoord(pixel, frameDim))
         return;
     // Trace primary ray.
     //const Ray ray = gScene.camera.computeRayPinhole(pixel, frameDim);
@@ -142,7 +148,21 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
             }
 
             if (blockedRayCounter > 0) {
-                penumbraMask[dispatchThreadId.xy] = (blockedRayCounter < kNumLightSamples) ? 2 : 1;
+                //penumbraMask[dispatchThreadId.xy] = (blockedRayCounter < kNumLightSamples) ? 2 : 1;
+                if (blockedRayCounter < kNumLightSamples) { // penumbra
+                    // Simple 3x3 splat to neighboring pixels
+                    for (int dy = -1; dy <= 1; ++dy) {
+                        for (int dx = -1; dx <= 1; ++dx)
+                        {
+                            int2 neighbor = pixel + int2(dx, dy);
+                            if (!IsValidScreenCoord(neighbor, frameDim)) continue;
+
+                            // Threadsafely mark as penumbra
+                            InterlockedMax(penumbraMask[neighbor], 2u);
+                        }
+                    }
+                }
+                else penumbraMask[dispatchThreadId.xy] = 1;
             }
         }
     }

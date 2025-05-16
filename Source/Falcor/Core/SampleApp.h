@@ -69,7 +69,7 @@ struct SampleAppConfig
     bool pauseTime = false; ///< Control whether or not to start the clock when the sample start running.
     bool showUI = true;     ///< Show the UI.
 
-    bool generateShaderDebugInfo = false;
+    bool generateShaderDebugInfo = true;
     bool shaderPreciseFloat = false;
 };
 

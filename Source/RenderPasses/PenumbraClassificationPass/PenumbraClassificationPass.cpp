@@ -145,7 +145,7 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
         classifyPassDesc.addShaderModules(mpScene->getShaderModules());
         classifyPassDesc.addShaderLibrary(kClassifyPassShaderFile).csEntry("main");
         classifyPassDesc.addTypeConformances(mpScene->getTypeConformances());
-
+        //classifyPassDesc.compilerFlags = SlangCompilerFlags::DumpIntermediates;
         DefineList classifyPassDefines = mpScene->getSceneDefines();
         mpCoarseClassificationPass = ComputePass::create(mpDevice, classifyPassDesc, classifyPassDefines);
 
