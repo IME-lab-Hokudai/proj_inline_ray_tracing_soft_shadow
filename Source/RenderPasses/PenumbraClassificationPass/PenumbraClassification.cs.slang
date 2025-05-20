@@ -45,6 +45,10 @@
 import Scene.RaytracingInline;
 import Utils.Math.Ray;
 
+struct PenumbraPixel {
+    uint2 coord;
+}
+
 cbuffer PerFrameCB
 {
     uint lightRepresentMeshID;
@@ -52,6 +56,8 @@ cbuffer PerFrameCB
 
 Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
 RWTexture2D<uint32_t> penumbraMask;
+AppendStructuredBuffer<PenumbraPixel> PenumbraAppendBuffer;
+
 static const int kNumLightSamples = 9;
 static float3 getPosW(const float3 orig, const float3 dir, const HitInfo hit)
 {
@@ -148,21 +154,30 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
             }
 
             if (blockedRayCounter > 0) {
-                //penumbraMask[dispatchThreadId.xy] = (blockedRayCounter < kNumLightSamples) ? 2 : 1;
-                if (blockedRayCounter < kNumLightSamples) { // penumbra
-                    // Simple 3x3 splat to neighboring pixels
-                    for (int dy = -1; dy <= 1; ++dy) {
-                        for (int dx = -1; dx <= 1; ++dx)
-                        {
-                            int2 neighbor = pixel + int2(dx, dy);
-                            if (!IsValidScreenCoord(neighbor, frameDim)) continue;
-
-                            // Threadsafely mark as penumbra
-                            InterlockedMax(penumbraMask[neighbor], 2u);
-                        }
-                    }
+                if (blockedRayCounter == kNumLightSamples)
+                    penumbraMask[dispatchThreadId.xy] = 1;
+                else {
+                    penumbraMask[dispatchThreadId.xy] = 2;
+                    PenumbraPixel p;
+                    p.coord = pixel;
+                    PenumbraAppendBuffer.Append(p);
                 }
-                else penumbraMask[dispatchThreadId.xy] = 1;
+
+                //if (blockedRayCounter < kNumLightSamples) { // penumbra
+                //    // Simple 5x5 splat to neighboring pixels
+                //    for (int dy = -2; dy <= 2; ++dy) {
+                //        for (int dx = -2; dx <= 2; ++dx)
+                //        {
+                //            int2 neighbor = pixel + int2(dx, dy);
+                //            if (!IsValidScreenCoord(neighbor, frameDim)) continue;
+
+                //            // Threadsafely mark as penumbra
+                //            InterlockedMax(penumbraMask[neighbor], 2u);
+                //        }
+                //    }
+                //}
+                //else if (penumbraMask[dispatchThreadId.xy] != 2)
+                //    penumbraMask[dispatchThreadId.xy] = 1;
             }
         }
     }

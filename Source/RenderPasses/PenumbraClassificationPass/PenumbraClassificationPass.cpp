@@ -29,8 +29,9 @@
 
 namespace
 {
-const char kSrc[] = "src";
-const char kDst[] = "dst";
+const char kInputVBuffer[] = "src";
+const char kPenumbraMask[] = "penumbraMask";
+const char kAppend[] = "appendBuffer";
 //const char kUpscaleDst[] = "upscaleDst";
 const char kIntenisyDst[] = "penumbraIntensity";
 const char kClassifyPassShaderFile[] = "RenderPasses/PenumbraClassificationPass/PenumbraClassification.cs.slang";
@@ -74,14 +75,32 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
     // Define the required resources here
     RenderPassReflection reflector;
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
-    reflector.addInput(kSrc, "Input Vbuffer").format(ResourceFormat::RGBA32Uint);
-    reflector.addOutput(kDst, "Masking texture (at lower res half/quarter) classify umbra/penumbra")
-                      .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
+    reflector.addInput(kInputVBuffer, "Input Vbuffer").format(ResourceFormat::RGBA32Uint);
+    reflector.addOutput(kPenumbraMask, "Masking texture (at lower res half/quarter) classify umbra/penumbra")
+                      .bindFlags(ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
                       .format(ResourceFormat::R32Uint)
                       .texture2D(sz.x,sz.y);
 
+
+    //reflector.addOutput(kAppend, "append penumbra pixels coord")
+    //                  .bindFlags(ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
+    //                  .format(ResourceFormat::RG32Uint)
+    //                  .re;
+    if (mpScene && sz.x > 0 && mpPenumbraAppendBuffer == nullptr)
+    {
+        mpPenumbraAppendBuffer = mpDevice->createStructuredBuffer(
+            sizeof(uint2),
+            sz.x * sz.y,
+            ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource,
+            MemoryType::DeviceLocal,
+            nullptr,
+            true
+        );
+        mpPenumbraAppendBuffer->setName("PenumbraClassificationPass.PenumbraAppendBuffer");
+    }
+
     reflector.addOutput(kIntenisyDst, "Shadow intensity")
-                      .bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
+                      .bindFlags(ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
                       .format(ResourceFormat::R32Float)
                       .texture2D(sz.x,sz.y);
     return reflector;
@@ -97,16 +116,24 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
     if (mpScene)
     {
         // renderData holds the requested resources
-        const auto& pCoarseClassifyOutput = renderData.getTexture(kDst);
-        const auto& pVBuffer = renderData.getTexture(kSrc);
-
+        const auto& pCoarseClassifyOutput = renderData.getTexture(kPenumbraMask);
+        const auto& pVBuffer = renderData.getTexture(kInputVBuffer);
+        //const auto& pAppendBuffer = renderData.getResource(kAppend)->asBuffer();
+        
         //coarse classification pass
         ShaderVar var = mpCoarseClassificationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
         var["penumbraMask"] = pCoarseClassifyOutput;
+        if (mpPenumbraAppendBuffer)
+        {
+            pRenderContext->clearUAVCounter(mpPenumbraAppendBuffer, 0);
+            var["PenumbraAppendBuffer"] = mpPenumbraAppendBuffer;
+        }
         var["PerFrameCB"]["lightRepresentMeshID"] = mpRectLight->getMeshID();
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
         mpCoarseClassificationPass->execute(pRenderContext, uint3(pCoarseClassifyOutput->getWidth(), pCoarseClassifyOutput->getHeight(), 1));
+
+        //pAppendBuffer->getEl;
 
         //intensity pass
         const auto& pPenumbraIntensityOutput = renderData.getTexture(kIntenisyDst);

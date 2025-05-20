@@ -57,6 +57,7 @@ private:
     ref<Scene> mpScene;
     ref<ComputePass> mpCoarseClassificationPass;
     ref<ComputePass> mpIntensityCalculationPass;
+    ref<Buffer> mpPenumbraAppendBuffer = nullptr;
     /// Selected output size.
     RenderPassHelpers::IOSize mOutputSizeSelection = RenderPassHelpers::IOSize::Default;
     /// Output size in pixels when 'Fixed' size is selected.

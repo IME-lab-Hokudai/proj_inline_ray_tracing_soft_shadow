@@ -194,6 +194,7 @@ Buffer::Buffer(
             MemoryType::DeviceLocal,
             &zero
         );
+        mpUAVCounter->setName("UAVCounter");//add name for debugging
     }
 }
 
