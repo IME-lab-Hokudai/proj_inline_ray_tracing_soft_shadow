@@ -1,6 +1,7 @@
 add_plugin(PenumbraClassificationPass)
 
 target_sources(PenumbraClassificationPass PRIVATE
+    PenumbraClassificationPassShared.hlsli
     PenumbraClassificationPass.cpp
     PenumbraClassificationPass.h
     PenumbraClassification.cs.slang

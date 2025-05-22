@@ -39,16 +39,12 @@
  * in this way, the final kernel is a blend of gaussians with doubling variance, plus a spike at the middle.
  * optionally, 6 star like lobes are added by brute force line sampling.
  */
+#include "PenumbraClassificationPassShared.hlsli"
 #include "Utils/HostDeviceShared.slangh"
 #include "Utils/Math/MathConstants.slangh"
 
-import Scene.RaytracingInline;
 import Utils.Math.Ray;
-
-struct PenumbraPixel {
-    uint2 coord;
-}
-
+import Scene.RaytracingInline;
 cbuffer PerFrameCB
 {
     uint lightRepresentMeshID;
@@ -56,7 +52,8 @@ cbuffer PerFrameCB
 
 Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
 RWTexture2D<uint32_t> penumbraMask;
-AppendStructuredBuffer<PenumbraPixel> PenumbraAppendBuffer;
+AppendStructuredBuffer<PenumbraInfo> PenumbraAppendBuffer;
+RWTexture2D<float32_t> penumbraIntensity;//save lit and umbra in this pass
 
 static const int kNumLightSamples = 9;
 static float3 getPosW(const float3 orig, const float3 dir, const HitInfo hit)
@@ -117,7 +114,9 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
     HitInfo hit;
     hit = unpackHitInfo(vbuffer[pixel]);
     uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
-    penumbraMask[dispatchThreadId.xy] = 0;//clear default to background
+    penumbraMask[dispatchThreadId.xy] = 0;      // clear default to background
+    penumbraIntensity[dispatchThreadId.xy] = 0; //clear default to background
+
     if (hit.isValid())
     {
         Ray ray;
@@ -154,12 +153,14 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
             }
 
             if (blockedRayCounter > 0) {
-                if (blockedRayCounter == kNumLightSamples)
+                if (blockedRayCounter == kNumLightSamples) {
                     penumbraMask[dispatchThreadId.xy] = 1;
+                    penumbraIntensity[dispatchThreadId.xy] = 1;
+                }
                 else {
                     penumbraMask[dispatchThreadId.xy] = 2;
-                    PenumbraPixel p;
-                    p.coord = pixel;
+                    PenumbraInfo p;
+                    p.pixelCoord = pixel;
                     PenumbraAppendBuffer.Append(p);
                 }
 

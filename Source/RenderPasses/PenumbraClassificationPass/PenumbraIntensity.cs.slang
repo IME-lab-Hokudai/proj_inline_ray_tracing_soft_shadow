@@ -39,6 +39,7 @@
  * in this way, the final kernel is a blend of gaussians with doubling variance, plus a spike at the middle.
  * optionally, 6 star like lobes are added by brute force line sampling.
  */
+#include "PenumbraClassificationPassShared.hlsli"
 #include "Utils/HostDeviceShared.slangh"
 #include "Utils/Math/MathConstants.slangh"
 
@@ -48,11 +49,15 @@ import Utils.Math.Ray;
 cbuffer PerFrameCB
 {
     uint lightRepresentMeshID;
+    uint gDispatchOffset;
+    uint gTotalPenumbraPixel;
 };
 
 Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
 Texture2D<uint32_t> penumbraMask;
-RWTexture2D<float32_t> penumbraIntensity; //0 is lit/background | 1 is umbra | (0,1) is penumbra
+RWTexture2D<float32_t> penumbraIntensity; // 0 is lit/background | 1 is umbra | (0,1) is penumbra
+StructuredBuffer<PenumbraInfo> gPenumbraBuffer;//saved penumbra coord buffer from classification pass
+
 static const int kNumLightSamples = 32;
 
 static float3 getPosW(const float3 orig, const float3 dir, const HitInfo hit)
@@ -117,29 +122,94 @@ float3 getRectSampleOffset(uint index)
     return offsets[index];
 }
 
-[numthreads(16, 16, 1)]
-void main(uint3 dispatchThreadId: SV_DispatchThreadID)
+// === GROUP-SHARED MEMORY SECTION ===
+// Reserve one float per pixel in group shared memory
+// Assumes each group processes exactly 8 pixels
+groupshared uint sharedSum[8];
+groupshared uint sharedAcc;
+
+[numthreads(32, 1, 1)]
+//[numthreads(256, 1, 1)]
+void main(uint3 dispatchThreadId: SV_DispatchThreadID, uint3 groupThreadId: SV_GroupThreadID, uint3 groupId: SV_GroupID)
 {
-    uint2 pixel = dispatchThreadId.xy;
-    uint2 frameDim;
-    penumbraMask.GetDimensions(frameDim.x, frameDim.y);
-    if (any(pixel >= frameDim))
+    //uint globalThreadIndex = gDispatchOffset + dispatchThreadId.x;
+    //// Decode pixel and sample index
+    //uint pixelIndex = globalThreadIndex / 32;  // Which penumbra pixel in buffer
+    //uint sampleIndex = globalThreadIndex % 32; // Which sample out of 32 for that pixel
+    //                                           // Return if index exceeds number of penumbra pixels in buffer
+
+    //// Return if index exceeds number of penumbra pixels in buffer
+    //if (pixelIndex >= gTotalPenumbraPixel)
+    //    return;
+
+    //// Local index of pixel in group (0–7)
+    //uint localPixel = groupThreadId.x / 32;
+
+    ////clear group shared values
+    //if (sampleIndex == 0) {
+    //    sharedSum[localPixel] = 0;
+    //}
+    //GroupMemoryBarrierWithGroupSync();
+
+    //uint2 pixelCoord = gPenumbraBuffer[pixelIndex].pixelCoord;
+    //HitInfo hit;
+    //hit = unpackHitInfo(vbuffer[pixelCoord]);
+    //uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
+    //if (hit.isValid())
+    //{
+    //     Ray ray;
+    //     VertexData vertexData = gScene.getVertexData(hit.getTriangleHit());
+    //     ray.origin = vertexData.posW;
+    //     LightData light = gScene.getLight(0);
+    //     SceneRayQuery<false> sceneRayQuery;
+    //     if (light.type == (uint)LightType::Rect) {
+    //         int blockedRayCounter = 0;
+
+    //         float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(sampleIndex), 1.f)).xyz;
+    //         float3 toLightDir = lightPos - vertexData.posW;
+
+    //         ray.dir = normalize(toLightDir);
+    //         ray.tMin = 0.001;
+    //         ray.tMax = length(toLightDir) - 0.01;
+
+    //         bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
+    //         if (!isVisible) {
+    //             InterlockedAdd(sharedSum[localPixel], 1);
+    //         }
+    //     }
+    //}
+
+    ////after complete all samples in group
+    //GroupMemoryBarrierWithGroupSync();
+
+    //// Thread 0 per pixel writes average to output buffer
+    //if (sampleIndex == 0)
+    //{
+    //    penumbraIntensity[pixelCoord] = sharedSum[localPixel] / 32.0f;
+    //}
+
+
+    //====one dispatch version
+   // uint globalThreadIndex = dispatchThreadId.x;
+    // Decode pixel and sample index
+    uint pixelIndexInAppendBuffer = groupId.x;           // Which penumbra pixel in appen buffer
+    uint sampleIndex = groupThreadId.x; // Which sample out of 32 for that pixel
+                                               // Return if index exceeds number of penumbra pixels in buffer
+
+    // Return if index exceeds number of penumbra pixels in buffer
+    if (pixelIndexInAppendBuffer >= gTotalPenumbraPixel)
         return;
 
-    penumbraIntensity[pixel] = 0.f; //to clear previous frame value
-
-    if (penumbraMask[pixel] == 0) { // lit or background
-        penumbraIntensity[pixel] = 0.f; // lit or background
-        return;
+    // clear group shared values
+    if (groupThreadId.x == 0) {
+        sharedAcc = 0;
     }
-    if (penumbraMask[pixel] == 1) { // umbra
-        penumbraIntensity[pixel] = 1.f;
-        return;
-    }
+    GroupMemoryBarrierWithGroupSync();
 
-    //*** casting rays for penumbra
+
+    uint2 pixelCoordInIntensityBuffer = gPenumbraBuffer[pixelIndexInAppendBuffer].pixelCoord;
     HitInfo hit;
-    hit = unpackHitInfo(vbuffer[pixel]);
+    hit = unpackHitInfo(vbuffer[pixelCoordInIntensityBuffer]);
     uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
     if (hit.isValid())
     {
@@ -150,21 +220,76 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
         SceneRayQuery<false> sceneRayQuery;
         if (light.type == (uint)LightType::Rect) {
             int blockedRayCounter = 0;
-            [unroll]
-            for (int i = 0; i < kNumLightSamples; i++) {
-                float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(i), 1.f)).xyz;
-                float3 toLightDir = lightPos - vertexData.posW;
-              
-                ray.dir = normalize(toLightDir);
-                ray.tMin = 0.001;
-                ray.tMax = length(toLightDir) - 0.01;
-                
-                bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
-                if (!isVisible) {
-                    blockedRayCounter++;
-                }
+
+            float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(sampleIndex), 1.f)).xyz;
+            float3 toLightDir = lightPos - vertexData.posW;
+
+            ray.dir = normalize(toLightDir);
+            ray.tMin = 0.001;
+            ray.tMax = length(toLightDir) - 0.01;
+
+            bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
+            if (!isVisible) {
+                //InterlockedAdd(penumbraIntensity[pixelCoordInIntensityBuffer], 1.0f/32.0f);
+                InterlockedAdd(sharedAcc, 1);
             }
-            penumbraIntensity[pixel] = (float)blockedRayCounter / kNumLightSamples;
         }
     }
+
+    // after complete all samples in group
+    GroupMemoryBarrierWithGroupSync();
+
+    // Thread 0 per pixel writes average to output buffer
+    if (groupThreadId.x == 0)
+    {
+        penumbraIntensity[pixelCoordInIntensityBuffer] = sharedAcc / 32.0f;
+    }
+
+    //uint2 pixel = dispatchThreadId.xy;
+    //uint2 frameDim;
+    //penumbraMask.GetDimensions(frameDim.x, frameDim.y);
+    //if (any(pixel >= frameDim))
+    //    return;
+
+    //penumbraIntensity[pixel] = 0.f; //to clear previous frame value
+
+    //if (penumbraMask[pixel] == 0) { // lit or background
+    //    penumbraIntensity[pixel] = 0.f; // lit or background
+    //    return;
+    //}
+    //if (penumbraMask[pixel] == 1) { // umbra
+    //    penumbraIntensity[pixel] = 1.f;
+    //    return;
+    //}
+
+    ////*** casting rays for penumbra
+    //HitInfo hit;
+    //hit = unpackHitInfo(vbuffer[pixel]);
+    //uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
+    //if (hit.isValid())
+    //{
+    //    Ray ray;
+    //    VertexData vertexData = gScene.getVertexData(hit.getTriangleHit());
+    //    ray.origin = vertexData.posW;
+    //    LightData light = gScene.getLight(0);
+    //    SceneRayQuery<false> sceneRayQuery;
+    //    if (light.type == (uint)LightType::Rect) {
+    //        int blockedRayCounter = 0;
+    //        [unroll]
+    //        for (int i = 0; i < kNumLightSamples; i++) {
+    //            float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(i), 1.f)).xyz;
+    //            float3 toLightDir = lightPos - vertexData.posW;
+              
+    //            ray.dir = normalize(toLightDir);
+    //            ray.tMin = 0.001;
+    //            ray.tMax = length(toLightDir) - 0.01;
+                
+    //            bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
+    //            if (!isVisible) {
+    //                blockedRayCounter++;
+    //            }
+    //        }
+    //        penumbraIntensity[pixel] = (float)blockedRayCounter / kNumLightSamples;
+    //    }
+    //}
 }

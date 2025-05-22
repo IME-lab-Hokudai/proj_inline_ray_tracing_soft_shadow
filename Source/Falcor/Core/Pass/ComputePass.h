@@ -87,7 +87,10 @@ public:
      * @param[in] pContext The compute context
      * @param[in] nThreads The number of threads to dispatch in the XYZ dimensions (note that this is not the number of thread groups)
      */
-    virtual void execute(ComputeContext* pContext, const uint3& nThreads) { execute(pContext, nThreads.x, nThreads.y, nThreads.z); }
+    virtual void execute(ComputeContext* pContext, const uint3& nThreads)
+    {
+        execute(pContext, nThreads.x, nThreads.y, nThreads.z);
+    }
 
     /**
      * Execute the pass using indirect dispatch given the compute-context and argument buffer

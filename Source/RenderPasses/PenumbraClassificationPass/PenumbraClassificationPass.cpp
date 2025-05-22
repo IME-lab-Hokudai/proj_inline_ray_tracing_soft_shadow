@@ -111,6 +111,10 @@ void PenumbraClassificationPass::compile(RenderContext* pRenderContext, const Co
    
 }
 
+const uint threadsPerGroup = 256;
+const uint maxResidentThreads = 65536;
+const uint maxGroupsPerDispatch = maxResidentThreads / threadsPerGroup;
+
 void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
     if (mpScene)
@@ -118,33 +122,64 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         // renderData holds the requested resources
         const auto& pCoarseClassifyOutput = renderData.getTexture(kPenumbraMask);
         const auto& pVBuffer = renderData.getTexture(kInputVBuffer);
+        // intensity pass
+        const auto& pPenumbraIntensityOutput = renderData.getTexture(kIntenisyDst);
         //const auto& pAppendBuffer = renderData.getResource(kAppend)->asBuffer();
         
         //coarse classification pass
         ShaderVar var = mpCoarseClassificationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
         var["penumbraMask"] = pCoarseClassifyOutput;
-        if (mpPenumbraAppendBuffer)
-        {
-            pRenderContext->clearUAVCounter(mpPenumbraAppendBuffer, 0);
-            var["PenumbraAppendBuffer"] = mpPenumbraAppendBuffer;
-        }
+        var["penumbraIntensity"] = pPenumbraIntensityOutput;
+
+        pRenderContext->clearUAVCounter(mpPenumbraAppendBuffer, 0);
+        var["PenumbraAppendBuffer"] = mpPenumbraAppendBuffer;
+        
         var["PerFrameCB"]["lightRepresentMeshID"] = mpRectLight->getMeshID();
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
         mpCoarseClassificationPass->execute(pRenderContext, uint3(pCoarseClassifyOutput->getWidth(), pCoarseClassifyOutput->getHeight(), 1));
 
-        //pAppendBuffer->getEl;
+        void* blob = new uint32_t;
+        mpPenumbraAppendBuffer->getUAVCounter()->getBlob(blob, 0, sizeof(uint32_t));
+        uint32_t penumbraCount = *static_cast<uint32_t*>(blob);
 
-        //intensity pass
-        const auto& pPenumbraIntensityOutput = renderData.getTexture(kIntenisyDst);
+       
         var = mpIntensityCalculationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
         var["penumbraMask"] = pCoarseClassifyOutput;
         var["penumbraIntensity"] = pPenumbraIntensityOutput;
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
-        mpIntensityCalculationPass->execute(
-            pRenderContext, uint3(pPenumbraIntensityOutput->getWidth(), pPenumbraIntensityOutput->getHeight(), 1)
-        );
+        //distribute samples
+        var["gPenumbraBuffer"] = mpPenumbraAppendBuffer;
+        var["PerFrameCB"]["gTotalPenumbraPixel"] = penumbraCount;
+
+        uint totalSamples = penumbraCount * 32;
+        uint totalGroups = (totalSamples + threadsPerGroup - 1) / threadsPerGroup;
+        uint remainingGroups = totalGroups;
+        uint offsetGroup = 0;
+        //while (remainingGroups > 0)
+        //{
+        //    //var["vbuffer"] = pVBuffer;
+        //    //var["penumbraMask"] = pCoarseClassifyOutput;
+        //    //var["penumbraIntensity"] = pPenumbraIntensityOutput;
+        //    //mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
+        //    //// distribute samples
+        //    //var["gPenumbraBuffer"] = mpPenumbraAppendBuffer;
+        //    //var["PerFrameCB"]["gTotalPenumbraPixel"] = penumbraCount;
+        //    uint groupsThisPass = std::min(remainingGroups, maxGroupsPerDispatch);
+        //    uint threadThisPass = groupsThisPass * threadsPerGroup;
+        //    // Set uniform with dispatch offset (to index into gPenumbraBuffer)
+        //    var["PerFrameCB"]["gDispatchOffset"] = offsetGroup * threadsPerGroup;
+
+        //    mpIntensityCalculationPass->execute(pRenderContext, uint3(threadThisPass, 1, 1)
+        //    );
+
+        //    remainingGroups -= groupsThisPass;
+        //    offsetGroup += groupsThisPass;
+        //}
+        var["PerFrameCB"]["gDispatchOffset"] = 0;
+
+        mpIntensityCalculationPass->execute(pRenderContext, uint3(totalSamples, 1, 1));
 
     }
 }
