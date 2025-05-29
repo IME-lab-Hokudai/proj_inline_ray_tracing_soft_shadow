@@ -85,6 +85,7 @@ void IRLSSNaiveImplement::execute(RenderContext* pRenderContext, const RenderDat
     {
         auto var = mpVars->getRootVar();
         var["gSampler"] = mpLinearSampler;
+        var["PerFrameCB"]["lightRepresentMeshID"] = mpRectLight->getMeshID();
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
         mpScene->rasterize(pRenderContext, mpGraphicsState.get(), mpVars.get(), mpRasterState, mpRasterState);
     }
@@ -124,5 +125,7 @@ void IRLSSNaiveImplement::setScene(RenderContext* pRenderContext, const ref<Scen
         mpGraphicsState->setRasterizerState(mpRasterState);
         mpGraphicsState->setFbo(mpFbo);
         mpGraphicsState->setDepthStencilState(pDsState);
+
+        mpRectLight = static_ref_cast<AnalyticAreaLight>(mpScene->getLight(0));
     }
 }

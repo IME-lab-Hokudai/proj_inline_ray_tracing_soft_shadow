@@ -7,7 +7,7 @@ static const int kNumLightSamples = 32;
 
 cbuffer PerFrameCB
 {
-    
+    uint lightRepresentMeshID;
 };
 
 VSOut vsMain(VSIn vIn)
@@ -107,47 +107,58 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     LightData light = gScene.getLight(0);
 
     // The light vector aims opposite the direction the light rays travel.
-    // float3 lightVec = -dirLightData.dirW;
     float3 lightPos = mul(light.transMat, float4(0, 0, 0, 1.f)).xyz;
     float3 toLightDir = normalize(lightPos - vsOut.posW);
 
-    // ambient
+    // ambient color hard coded
     float3 ambientColor = 0.1 * baseColorSample.rgb;
 
-    // diffuse calculation
-    float ndotl = max(dot(toLightDir, normalSampleW), 0.0f);
-    float3 diffuseColor = ndotl * baseColorSample.rgb * light.intensity;
-    //float3 diffuseColor = baseColorSample.rgb * light.intensity;
+    float3 diffuseColor = float3(0.f, 0.f, 0.f);
+    float3 specular = float3(0.f, 0.f, 0.f);
+    float shadowIntensity = 0.f;
 
-    // specular calculation
-    const float shininess = 32.f;
-    float3 halfVec = normalize(viewDir + toLightDir);
-    float ndoth = max(dot(halfVec, normalSampleW), 0.0f);
-    float3 specular = pow(ndoth, shininess) * specularSample.rgb * light.intensity;
+    if (light.type == (uint)LightType::Rect) {
+        float3 lightWorldNormal = normalize(mul(light.transMatIT, float4(0.f, 1.f, 0.f, 0.f))).xyz;
+        float3 fromLightDir = -toLightDir;
+        float fromLightDotNormal = dot(fromLightDir, lightWorldNormal);
 
-    // shadow intensity
-    int blockedRayCounter = 0;
-    Ray ray;
-    SceneRayQuery<false> sceneRayQuery;
-    ray.origin = vsOut.posW;
-    [unroll]
-    for (int i = 0; i < kNumLightSamples; i++) {
+        if (fromLightDotNormal >= 0.f) {//check if point is in emission side
+            // diffuse calculation
+            float ndotl = max(dot(toLightDir, normalSampleW), 0.0f);
+            diffuseColor = ndotl * baseColorSample.rgb * light.intensity;
 
-        float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(i), 1.f)).xyz;
-        float3 toLightDir = lightPos - vsOut.posW;
-        float3 normToLightDir = normalize(toLightDir);
+            // specular calculation
+            const float shininess = 16.f;
+            float3 halfVec = normalize(viewDir + toLightDir);
+            float ndoth = max(dot(halfVec, normalSampleW), 0.0f);
+            specular = pow(ndoth, shininess) * specularSample.rgb * light.intensity;
 
-        ray.dir = normalize(toLightDir);
-        ray.tMin = 0.001;
-        ray.tMax = length(toLightDir) - 0.01;
+            //shadow intensity
+            int blockedRayCounter = 0;
+            Ray ray;
+            SceneRayQuery<false> sceneRayQuery;
+            ray.origin = vsOut.posW;
 
-        bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
-        if (!isVisible) {
-            blockedRayCounter++;
+            [unroll]
+            for (int i = 0; i < kNumLightSamples; i++) {
+
+                float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(i), 1.f)).xyz;
+                float3 toLightDir = lightPos - vsOut.posW;
+
+                ray.dir = normalize(toLightDir);
+                ray.tMin = 0.001;
+                ray.tMax = length(toLightDir) - 0.001;
+
+                bool isVisible = sceneRayQuery.traceVisibilityRay(ray);
+                if (!isVisible) {
+                    blockedRayCounter++;
+                }
+            }
+
+            shadowIntensity = (float)blockedRayCounter / kNumLightSamples;
         }
     }
-     float shadowIntensity = (float)blockedRayCounter / kNumLightSamples;
-    //float shadowIntensity = 0.f;
+
     float3 litColor = ambientColor + (1 - shadowIntensity)*(diffuseColor + specular) + emissiveSample.rgb;
     return float4(litColor,1.0f);
 }
