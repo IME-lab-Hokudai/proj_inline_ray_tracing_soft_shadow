@@ -29,7 +29,49 @@ import Scene.Raytracing;
 import Utils.Sampling.TinyUniformSampleGenerator;
 import Rendering.Lights.LightHelpers;
 
-RWTexture2D<float4> gOutput;
+RWTexture2D<float32_t> penumbraIntensity; // shadow intensity
+static const int kNumLightSamples = 32;
+float3 getRectSampleOffset(uint index)
+{
+    float3 offsets[32] = {
+        float3(-0.4375f, 0.0f, 0.3750f),
+    float3(-0.3125f, 0.0f, 0.3750f),
+    float3(-0.1875f, 0.0f, 0.3750f),
+        float3(-0.0625f, 0.0f, 0.3750f),
+    float3(0.0625f, 0.0f, 0.3750f),
+    float3(0.1875f, 0.0f, 0.3750f),
+        float3(0.3125f, 0.0f, 0.3750f),
+    float3(0.4375f, 0.0f, 0.3750f),
+
+        float3(-0.4375f, 0.0f, 0.1250f),
+    float3(-0.3125f, 0.0f, 0.1250f),
+    float3(-0.1875f, 0.0f, 0.1250f),
+        float3(-0.0625f, 0.0f, 0.1250f),
+    float3(0.0625f, 0.0f, 0.1250f),
+    float3(0.1875f, 0.0f, 0.1250f),
+        float3(0.3125f, 0.0f, 0.1250f),
+    float3(0.4375f, 0.0f, 0.1250f),
+
+        float3(-0.4375f, 0.0f, -0.1250f),
+    float3(-0.3125f, 0.0f, -0.1250f),
+    float3(-0.1875f, 0.0f, -0.1250f),
+        float3(-0.0625f, 0.0f, -0.1250f),
+    float3(0.0625f, 0.0f, -0.1250f),
+    float3(0.1875f, 0.0f, -0.1250f),
+        float3(0.3125f, 0.0f, -0.1250f),
+    float3(0.4375f, 0.0f, -0.1250f),
+
+        float3(-0.4375f, 0.0f, -0.3750f),
+    float3(-0.3125f, 0.0f, -0.3750f),
+    float3(-0.1875f, 0.0f, -0.3750f),
+        float3(-0.0625f, 0.0f, -0.3750f),
+    float3(0.0625f, 0.0f, -0.3750f),
+    float3(0.1875f, 0.0f, -0.3750f),
+        float3(0.3125f, 0.0f, -0.3750f),
+    float3(0.4375f, 0.0f, -0.3750f),
+    };
+    return offsets[index];
+}
 
 cbuffer PerFrameCB
 {
@@ -67,9 +109,8 @@ void shadowAnyHit(inout ShadowRayData hitData, BuiltInTriangleIntersectionAttrib
 [shader("miss")]
 void primaryMiss(inout PrimaryRayData hitData)
 {
-    //hitData.color = float4(0.38f, 0.52f, 0.10f, 1.f);
-    hitData.color = float4(0.0f, 0.0f, 0.0f, 1.f);
-    hitData.hitT = -1.f;
+    uint3 launchIndex = DispatchRaysIndex();
+    penumbraIntensity[launchIndex.xy] = 0;
 }
 
 bool traceShadowRay(RayDesc ray)
@@ -80,89 +121,32 @@ bool traceShadowRay(RayDesc ray)
     return rayData.hit;
 }
 
-float3 getReflectionColor(const ShadingData sd, const BSDFProperties bsdfProperties, float3 normalW, float3 worldRayDir, uint hitDepth)
-{
-    float3 reflectColor = float3(0, 0, 0);
-    if (hitDepth == 0)
-    {
-        PrimaryRayData secondaryRay = {};
-        secondaryRay.depth = 1;
-
-        RayDesc ray;
-        ray.Origin = sd.posW;
-        ray.Direction = reflect(worldRayDir, normalW);
-        ray.TMin = 0.001f;
-        ray.TMax = 100000.f;
-        TraceRay(gScene.rtAccel, 0 /*rayFlags*/, 0xFF, 0 /* ray index*/, rayTypeCount, 0, ray, secondaryRay);
-
-        // A very non-PBR inaccurate way to do reflections.
-        reflectColor = secondaryRay.hitT < 0.f ? float3(0.f) : secondaryRay.color.rgb;
-        float falloff = max(1.f, (secondaryRay.hitT * secondaryRay.hitT));
-        reflectColor *= 20.f / falloff;
-        float ggxAlpha = min(0.5f, max(1e-8f, bsdfProperties.roughness * bsdfProperties.roughness));
-        reflectColor += bsdfProperties.specularReflectance * reflectColor * (ggxAlpha * ggxAlpha);
-    }
-    return reflectColor;
-}
-
 [shader("closesthit")]
 void primaryClosestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
 {
     // Get the hit-point data.
-    float3 rayDirW = WorldRayDirection();
-    float hitT = RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
 
     // Prepare the shading data.
     const GeometryInstanceID instanceID = getGeometryInstanceID();
     VertexData v = getVertexData(instanceID, triangleIndex, attribs);
-    uint materialID = gScene.getMaterialID(instanceID);
-    ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDirW);
-
-    // Create material instance and query its properties.
-    let lod = ExplicitLodTextureSampler(0.f);
-    let mi = gScene.materials.getMaterialInstance(sd, lod); // IMaterialInstance
-    let bsdfProperties = mi.getProperties(sd);
-
-    float3 color = bsdfProperties.emission;
 
     uint3 launchIndex = DispatchRaysIndex();
-    TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(launchIndex.xy, sampleIndex);
+    penumbraIntensity[launchIndex.xy] = 0;
+    LightData light = gScene.getLight(0);
+    if (light.type == (uint)LightType::Rect) {
+        [unroll]
+        for (int i = 0; i < kNumLightSamples; i++) {
+            float3 lightPos = mul(light.transMat, float4(getRectSampleOffset(i), 1.f)).xyz;
+            float3 toLightDir = lightPos - v.posW;
+            RayDesc shadowRay = { v.posW, 0.001f, normalize(toLightDir), length(toLightDir) - 0.01};
 
-    // Direct lighting from analytic light sources.
-    for (int i = 0; i < gScene.getLightCount(); i++)
-    {
-        AnalyticLightSample ls;
-        if (evalLightApproximate(sd.posW, gScene.getLight(i), ls))//there is another function that handle more type of light
-        {
-            RayDesc shadowRay = { sd.posW, 0.001f, ls.dir, ls.distance };
-
-            if (!traceShadowRay(shadowRay))
-            {
-                color += mi.eval(sd, ls.dir, sg) * ls.Li;
+            if (traceShadowRay(shadowRay)) {
+                penumbraIntensity[launchIndex.xy] += 1;//increase blocked ray counter
             }
         }
     }
-
-    // Shoot a reflection ray.
-    //color += getReflectionColor(sd, bsdfProperties, v.normalW, rayDirW, hitData.depth);
-
-    hitData.color = float4(color, 1.f);
-    hitData.hitT = hitT;
 }
-
-//[shader("anyhit")]
-//void primaryAnyHit(inout PrimaryRayData rayData, BuiltInTriangleIntersectionAttributes attribs)
-//{
-//    // Alpha test for non-opaque geometry.
-//    GeometryInstanceID instanceID = getGeometryInstanceID();
-//    VertexData v = getVertexData(instanceID, PrimitiveIndex(), attribs);
-//    uint materialID = gScene.getMaterialID(instanceID);
-//    if (gScene.materials.alphaTest(v, materialID, 0.f))
-//    {
-//        IgnoreHit();
-//    }
-//}
 
 [shader("raygeneration")]
 void rayGen()
@@ -171,10 +155,10 @@ void rayGen()
 
     RayDesc ray;
    
-    ray = gScene.camera.computeRayPinhole(launchIndex.xy, viewportDims).toRayDesc();
+    ray = gScene.camera.computeRayPinhole(launchIndex.xy, viewportDims, false).toRayDesc();
     
     PrimaryRayData hitData;
     hitData.depth = 0;
     TraceRay(gScene.rtAccel, 0 /*rayFlags*/, 0xFF, 0 /* ray index 0 is primary ray*/, rayTypeCount, 0, ray, hitData);
-    gOutput[launchIndex.xy] = hitData.color;
+    penumbraIntensity[launchIndex.xy] = penumbraIntensity[launchIndex.xy]/32.f;
 }

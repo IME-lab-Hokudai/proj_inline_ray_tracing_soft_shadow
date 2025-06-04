@@ -132,7 +132,7 @@ groupshared uint sharedAcc;
 //[numthreads(256, 1, 1)]
 void main(uint3 dispatchThreadId: SV_DispatchThreadID, uint3 groupThreadId: SV_GroupThreadID, uint3 groupId: SV_GroupID)
 {
-    //uint globalThreadIndex = gDispatchOffset + dispatchThreadId.x;
+    //uint globalThreadIndex = dispatchThreadId.x;
     //// Decode pixel and sample index
     //uint pixelIndex = globalThreadIndex / 32;  // Which penumbra pixel in buffer
     //uint sampleIndex = globalThreadIndex % 32; // Which sample out of 32 for that pixel
