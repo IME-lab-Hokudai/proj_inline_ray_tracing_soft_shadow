@@ -51,7 +51,7 @@ cbuffer PerFrameCB
 };
 
 Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
-RWTexture2D<uint32_t> penumbraMask;
+//RWTexture2D<uint32_t> penumbraMask;
 AppendStructuredBuffer<PenumbraInfo> PenumbraAppendBuffer;
 RWTexture2D<float32_t> penumbraIntensity;//save lit and umbra in this pass
 
@@ -104,17 +104,16 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
 {
     uint2 pixel = dispatchThreadId.xy;
     uint2 frameDim;
-    penumbraMask.GetDimensions(frameDim.x, frameDim.y);
+    penumbraIntensity.GetDimensions(frameDim.x, frameDim.y);
     //if (any(pixel >= frameDim))
     //    return;
     if (!IsValidScreenCoord(pixel, frameDim))
         return;
     // Trace primary ray.
-    //const Ray ray = gScene.camera.computeRayPinhole(pixel, frameDim);
     HitInfo hit;
     hit = unpackHitInfo(vbuffer[pixel]);
     uint32_t mask = 0; // 0 is lit or back ground | 1 is umbra | 2 is penumbra
-    penumbraMask[dispatchThreadId.xy] = 0;      // clear default to background
+    //penumbraMask[dispatchThreadId.xy] = 0;      // clear default to background
     penumbraIntensity[dispatchThreadId.xy] = 0; //clear default to background
 
     if (hit.isValid())
@@ -154,11 +153,11 @@ void main(uint3 dispatchThreadId: SV_DispatchThreadID)
 
             if (blockedRayCounter > 0) {
                 if (blockedRayCounter == kNumLightSamples) {
-                    penumbraMask[dispatchThreadId.xy] = 1;
+                   // penumbraMask[dispatchThreadId.xy] = 1;
                     penumbraIntensity[dispatchThreadId.xy] = 1;
                 }
                 else {
-                    penumbraMask[dispatchThreadId.xy] = 2;
+                    //penumbraMask[dispatchThreadId.xy] = 2;
                     PenumbraInfo p;
                     p.pixelCoord = pixel;
                     PenumbraAppendBuffer.Append(p);

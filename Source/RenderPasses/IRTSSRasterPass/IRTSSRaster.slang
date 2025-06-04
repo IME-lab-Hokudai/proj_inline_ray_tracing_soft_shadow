@@ -84,9 +84,6 @@ float4 psMain(VSOut vsOut, uint triangleIndex: SV_PrimitiveID) : SV_TARGET
     // doing LDR rendering.  So scale it down a bit.
     //specColor = specColor / (specColor + 1.0f);
 
-    // float3 litColor = (diffuseColor + specColor) * light.intensity  + emissiveSample.rgb;
     float3 litColor = ambientColor + (1 - penumbraMask[vsOut.posH.xy])*(diffuseColor + specular) + emissiveSample.rgb;
     return float4(litColor,1.0f);
-    // return emissiveSample;
-    //return baseColorSample;
 }

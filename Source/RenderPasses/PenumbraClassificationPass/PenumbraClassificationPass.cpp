@@ -53,12 +53,6 @@ PenumbraClassificationPass::PenumbraClassificationPass(ref<Device> pDevice, cons
         if (key == kOutputSize) mOutputSizeSelection = value;
         else if (key == kFixedOutputSize) mFixedOutputSize = value;
     }
-    
-    //mpSampleGenerator = SampleGenerator::create(mpDevice, SAMPLE_GENERATOR_TINY_UNIFORM);
-    //Sampler::Desc linearSamplerDesc;
-    //linearSamplerDesc.setFilterMode(TextureFilteringMode::Linear, TextureFilteringMode::Linear, TextureFilteringMode::Linear);
-
-    //mpLinearSampler = mpDevice->createSampler(linearSamplerDesc);
 }
 
 Properties PenumbraClassificationPass::getProperties() const
@@ -76,16 +70,11 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
     RenderPassReflection reflector;
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
     reflector.addInput(kInputVBuffer, "Input Vbuffer").format(ResourceFormat::RGBA32Uint);
-    reflector.addOutput(kPenumbraMask, "Masking texture (at lower res half/quarter) classify umbra/penumbra")
-                      .bindFlags(ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
-                      .format(ResourceFormat::R32Uint)
-                      .texture2D(sz.x,sz.y);
-
-
-    //reflector.addOutput(kAppend, "append penumbra pixels coord")
+    //reflector.addOutput(kPenumbraMask, "Masking texture (at lower res half/quarter) classify umbra/penumbra")
     //                  .bindFlags(ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
-    //                  .format(ResourceFormat::RG32Uint)
-    //                  .re;
+    //                  .format(ResourceFormat::R32Uint)
+    //                  .texture2D(sz.x,sz.y);
+
     if (mpScene && sz.x > 0 && mpPenumbraAppendBuffer == nullptr)
     {
         mpPenumbraAppendBuffer = mpDevice->createStructuredBuffer(
@@ -99,7 +88,7 @@ RenderPassReflection PenumbraClassificationPass::reflect(const CompileData& comp
         mpPenumbraAppendBuffer->setName("PenumbraClassificationPass.PenumbraAppendBuffer");
     }
 
-    reflector.addOutput(kIntenisyDst, "Shadow intensity")
+    reflector.addOutput(kIntenisyDst, "Shadow intensity texture")
                       .bindFlags(ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource)
                       .format(ResourceFormat::R32Float)
                       .texture2D(sz.x,sz.y);
@@ -120,7 +109,7 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
     if (mpScene)
     {
         // renderData holds the requested resources
-        const auto& pCoarseClassifyOutput = renderData.getTexture(kPenumbraMask);
+        //const auto& pCoarseClassifyOutput = renderData.getTexture(kPenumbraMask);
         const auto& pVBuffer = renderData.getTexture(kInputVBuffer);
         // intensity pass
         const auto& pPenumbraIntensityOutput = renderData.getTexture(kIntenisyDst);
@@ -129,7 +118,7 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         //coarse classification pass
         ShaderVar var = mpCoarseClassificationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
-        var["penumbraMask"] = pCoarseClassifyOutput;
+        //var["penumbraMask"] = pCoarseClassifyOutput;
         var["penumbraIntensity"] = pPenumbraIntensityOutput;
 
         pRenderContext->clearUAVCounter(mpPenumbraAppendBuffer, 0);
@@ -137,16 +126,17 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         
         var["PerFrameCB"]["lightRepresentMeshID"] = mpRectLight->getMeshID();
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
-        mpCoarseClassificationPass->execute(pRenderContext, uint3(pCoarseClassifyOutput->getWidth(), pCoarseClassifyOutput->getHeight(), 1));
+        mpCoarseClassificationPass->execute(
+            pRenderContext, uint3(pPenumbraIntensityOutput->getWidth(), pPenumbraIntensityOutput->getHeight(), 1)
+        );
 
         void* blob = new uint32_t;
         mpPenumbraAppendBuffer->getUAVCounter()->getBlob(blob, 0, sizeof(uint32_t));
         uint32_t penumbraCount = *static_cast<uint32_t*>(blob);
 
-       
         var = mpIntensityCalculationPass->getRootVar();
         var["vbuffer"] = pVBuffer;
-        var["penumbraMask"] = pCoarseClassifyOutput;
+        //var["penumbraMask"] = pCoarseClassifyOutput;
         var["penumbraIntensity"] = pPenumbraIntensityOutput;
         mpScene->bindShaderDataForRaytracing(pRenderContext, var["gScene"]);
         //distribute samples
@@ -154,9 +144,9 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         var["PerFrameCB"]["gTotalPenumbraPixel"] = penumbraCount;
 
         uint totalSamples = penumbraCount * 32;
-        uint totalGroups = (totalSamples + threadsPerGroup - 1) / threadsPerGroup;
-        uint remainingGroups = totalGroups;
-        uint offsetGroup = 0;
+        //uint totalGroups = (totalSamples + threadsPerGroup - 1) / threadsPerGroup;
+        //uint remainingGroups = totalGroups;
+        //uint offsetGroup = 0;
         //while (remainingGroups > 0)
         //{
         //    //var["vbuffer"] = pVBuffer;
@@ -177,7 +167,7 @@ void PenumbraClassificationPass::execute(RenderContext* pRenderContext, const Re
         //    remainingGroups -= groupsThisPass;
         //    offsetGroup += groupsThisPass;
         //}
-        var["PerFrameCB"]["gDispatchOffset"] = 0;
+        //var["PerFrameCB"]["gDispatchOffset"] = 0;
 
         mpIntensityCalculationPass->execute(pRenderContext, uint3(totalSamples, 1, 1));
 
@@ -220,5 +210,7 @@ void PenumbraClassificationPass::setScene(RenderContext* pRenderContext, const r
         mpIntensityCalculationPass = ComputePass::create(mpDevice, intensityPassdesc, intensityPassDefines);
 
         mpRectLight = static_ref_cast<AnalyticAreaLight>(mpScene->getLight(0));
+
+
     }
 }

@@ -54,7 +54,7 @@ cbuffer PerFrameCB
 };
 
 Texture2D<PackedHitInfo> vbuffer;//packed vbuffer
-Texture2D<uint32_t> penumbraMask;
+//Texture2D<uint32_t> penumbraMask;
 RWTexture2D<float32_t> penumbraIntensity; // 0 is lit/background | 1 is umbra | (0,1) is penumbra
 StructuredBuffer<PenumbraInfo> gPenumbraBuffer;//saved penumbra coord buffer from classification pass
 
